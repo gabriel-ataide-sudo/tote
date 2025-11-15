@@ -1,0 +1,1 @@
+python simulstreaming_whisper_server.py --language pt --task transcribe --host 0.0.0.0 --model_path ./models/large-v3-turbo.pt

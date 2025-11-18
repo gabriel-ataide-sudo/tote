@@ -1,0 +1,1 @@
+python simulstreaming_whisper_server.py --language pt --task transcribe --vac --min-chunk-size 0.8 --host 0.0.0.0 --model_path small.pt

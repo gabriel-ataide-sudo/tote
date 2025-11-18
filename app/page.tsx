@@ -6,10 +6,10 @@ import { useTheme } from 'next-themes';
 import { SettingsMenu } from '@/components/SettingMenu';
 import { invoke } from '@tauri-apps/api/core';
 import { Button } from '@/components/ui/button';
-import { Play, Square, Loader2 } from 'lucide-react'; // Certifique-se de ter lucide-react instalado ou use ícones SVG
+import { Play, Square, Loader2 } from 'lucide-react';
 
 export default function Home() {
-  // Estados de Configuração Visual
+  // Estados de Configuração Visual (Restaurados para os defaults do código original)
   const [position, setPosition] = useState('middle');
   const [fontFamily, setFontFamily] = useState('sans');
   const [fontWeight, setFontWeight] = useState('normal');
@@ -17,20 +17,18 @@ export default function Home() {
   const [transparency, setTransparency] = useState('100');
 
   // Estados da Aplicação de Transcrição
-  const [subtitle, setSubtitle] = useState('');
+  const [subtitle, setSubtitle] = useState('As legendas irão aparecer aqui...');
   const [isRecording, setIsRecording] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
   const { theme, setTheme } = useTheme();
 
-  // Configurações do Servidor Whisper (Python)
+  // Configurações do Servidor Python
   const WHISPER_HOST = '127.0.0.1';
   const WHISPER_PORT = 43007;
 
-  // Função para Iniciar/Parar a Transcrição
   const toggleTranscription = async () => {
     if (isRecording) {
-      // Parar
       try {
         await invoke('parar_transcricao');
         setIsRecording(false);
@@ -38,42 +36,35 @@ export default function Home() {
         console.error('Erro ao parar:', error);
       }
     } else {
-      // Iniciar
       setIsConnecting(true);
       try {
-        // 1. Inicializa o Wrapper (Conecta ao socket Python)
-        // Ignoramos o erro se ele já estiver iniciado
         try {
           await invoke('iniciar_wrapper', {
             host: WHISPER_HOST,
             porta: WHISPER_PORT,
-            limite_caracteres: 300, // Limite de caracteres para quebra
-            comprimento_minimo: 0.5,
+            limite_caracteres: 300,
+            comprimento_minimo: 0.8,
           });
         } catch (e: any) {
           if (typeof e === 'string' && !e.includes('Wrapper já foi iniciado')) {
             throw e;
           }
         }
-
-        // 2. Inicia o envio de áudio
         await invoke('iniciar_transcricao');
         setIsRecording(true);
+        setSubtitle('');
       } catch (error) {
-        console.error('Erro ao conectar:', error);
-        alert(
-          "Falha ao conectar ao servidor Python. Verifique se o script 'simulstreaming_whisper_server.py' está rodando."
-        );
+        console.error('Falha ao conectar/iniciar transcrição:', error);
+        alert('Falha ao conectar ao servidor Python.');
       } finally {
         setIsConnecting(false);
       }
     }
   };
 
-  // Polling: Busca o texto atualizado do Rust a cada 100ms
+  // Polling para o texto em tempo real
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
-
     if (isRecording) {
       intervalId = setInterval(async () => {
         try {
@@ -82,41 +73,49 @@ export default function Home() {
             setSubtitle(textoAtual);
           }
         } catch (error) {
-          console.error('Erro no polling:', error);
+          // Captura o erro no polling (o Rust pode travar se o wrapper perder a conexão)
+          console.debug(
+            'Erro no polling (normal durante interrupções):',
+            error
+          );
         }
-      }, 1);
+      }, 100);
     }
-
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
   }, [isRecording]);
 
-  // Estilos dinâmicos baseados nas configurações
+  // Estilos dinâmicos
   const textStyle = {
     fontFamily:
       fontFamily === 'sans'
         ? 'var(--font-sans)'
         : fontFamily === 'serif'
-        ? 'var(--font-serif)'
-        : 'var(--font-mono)',
+        ? 'serif'
+        : 'monospace',
     fontWeight: fontWeight as any,
     fontSize: fontSize,
     opacity: parseInt(transparency) / 100,
+    color: theme === 'dark' ? 'rgb(228 228 231)' : 'rgb(39 39 42)', // Cor do texto baseada no tema
   };
+
+  // Classe de fundo restaurada (bg-zinc-900 / bg-white)
+  const boxClass = theme === 'dark' ? 'bg-zinc-900' : 'bg-white';
 
   return (
     <div className='flex min-h-screen items-center justify-center bg-zinc-100 font-sans dark:bg-zinc-950'>
       <main className='container p-4'>
-        <div className='relative flex flex-col rounded-lg border bg-white p-6 shadow-sm dark:bg-zinc-900'>
+        <div
+          className={`relative flex flex-col rounded-lg border p-6 shadow-sm ${boxClass}`}
+        >
           {/* Header com Controles e Configurações */}
           <div className='mb-4 flex items-center justify-between'>
-            <div className='flex items-center gap-4'>
-              <h1 className='text-lg font-semibold text-black dark:text-zinc-50'>
-                Tote
-              </h1>
+            <h1 className='text-lg font-semibold text-black dark:text-zinc-50'>
+              Texto recebido da IA
+            </h1>
 
-              {/* Botão de Controle Principal */}
+            <div className='flex items-center gap-4'>
               <Button
                 onClick={toggleTranscription}
                 disabled={isConnecting}
@@ -135,41 +134,35 @@ export default function Home() {
                   </>
                 )}
               </Button>
-            </div>
 
-            {/* Menu de Configurações */}
-            <SettingsMenu
-              position={position}
-              setPosition={setPosition}
-              fontFamily={fontFamily}
-              setFontFamily={setFontFamily}
-              fontWeight={fontWeight}
-              setFontWeight={setFontWeight}
-              fontSize={fontSize}
-              setFontSize={setFontSize}
-              transparency={transparency}
-              setTransparency={setTransparency}
-              theme={theme}
-              setTheme={setTheme}
-            />
+              {/* Dropdown menu */}
+              <SettingsMenu
+                position={position}
+                setPosition={setPosition}
+                fontFamily={fontFamily}
+                setFontFamily={setFontFamily}
+                fontWeight={fontWeight}
+                setFontWeight={setFontWeight}
+                fontSize={fontSize}
+                setFontSize={setFontSize}
+                transparency={transparency}
+                setTransparency={setTransparency}
+                theme={theme}
+                setTheme={setTheme}
+              />
+            </div>
           </div>
 
-          {/* Área de Legenda */}
-          <div
-            className={`min-h-[200px] w-full rounded-md border bg-zinc-50 p-4 dark:bg-zinc-800 transition-all overflow-y-auto flex ${
-              position === 'top'
-                ? 'items-start'
-                : position === 'bottom'
-                ? 'items-end'
-                : 'items-center'
-            }`}
-          >
-            <p
-              className='text-zinc-800 dark:text-zinc-200 w-full text-center whitespace-pre-wrap'
-              style={textStyle}
-            >
-              {subtitle || 'As legendas aparecerão aqui quando você iniciar...'}
-            </p>
+          {/* Subtitle Text Box */}
+          <div className='min-h-[120px] w-full rounded-md border bg-zinc-50 dark:bg-zinc-800 p-4 relative overflow-hidden'>
+            <div className='flex flex-col justify-end h-full w-full'>
+              <p
+                className='w-full whitespace-pre-wrap leading-snug text-center'
+                style={textStyle}
+              >
+                {subtitle}
+              </p>
+            </div>
           </div>
         </div>
       </main>

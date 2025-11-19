@@ -9,6 +9,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Slider } from '@/components/ui/slider';
 
 interface BoxSettingsProps {
   transparency: string;
@@ -23,25 +24,22 @@ export function BoxSettings({
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>
         <Square className='mr-2 h-4 w-4' />
-        <span>Caixa</span>
+        <span>Transparência</span>
       </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent>
-        <DropdownMenuLabel>Transparência</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={transparency}
-          onValueChange={setTransparency}
-        >
-          <DropdownMenuRadioItem value='100'>
-            Sólido (100%)
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value='75'>75%</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value='50'>
-            Semissólido (50%)
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value='0'>
-            Transparente (0%)
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
+      <DropdownMenuSubContent className="p-4 min-w-[200px]">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Opacidade</span>
+            <span className="text-sm text-muted-foreground">{transparency}%</span>
+          </div>
+          <Slider
+            value={[parseInt(transparency)]}
+            onValueChange={(value) => setTransparency(value[0].toString())}
+            max={100}
+            step={1}
+            className="w-full"
+          />
+        </div>
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   );

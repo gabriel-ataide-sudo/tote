@@ -26,11 +26,11 @@ export function PositionSettings({
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent>
         <DropdownMenuRadioGroup value={position} onValueChange={setPosition}>
-          <DropdownMenuRadioItem value='top'>Acima da tela</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value='middle'>
+          <DropdownMenuRadioItem value='top' onSelect={(e) => e.preventDefault()}>Acima da tela</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value='middle' onSelect={(e) => e.preventDefault()}>
             Sobreposto na tela
           </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value='bottom'>
+          <DropdownMenuRadioItem value='bottom' onSelect={(e) => e.preventDefault()}>
             Abaixo da tela
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>

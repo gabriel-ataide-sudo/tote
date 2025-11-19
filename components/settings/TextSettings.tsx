@@ -41,11 +41,11 @@ export function TextSettings({
               value={fontFamily}
               onValueChange={setFontFamily}
             >
-              <DropdownMenuRadioItem value='sans'>
+              <DropdownMenuRadioItem value='sans' onSelect={(e) => e.preventDefault()}>
                 Sans-Serif
               </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value='serif'>Serif</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value='mono'>
+              <DropdownMenuRadioItem value='serif' onSelect={(e) => e.preventDefault()}>Serif</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value='mono' onSelect={(e) => e.preventDefault()}>
                 Monospace
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
@@ -59,11 +59,11 @@ export function TextSettings({
               value={fontWeight}
               onValueChange={setFontWeight}
             >
-              <DropdownMenuRadioItem value='light'>Light</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value='normal'>
+              <DropdownMenuRadioItem value='light' onSelect={(e) => e.preventDefault()}>Light</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value='normal' onSelect={(e) => e.preventDefault()}>
                 Normal
               </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value='bold'>Bold</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value='bold' onSelect={(e) => e.preventDefault()}>Bold</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
@@ -75,11 +75,11 @@ export function TextSettings({
               value={fontSize}
               onValueChange={setFontSize}
             >
-              <DropdownMenuRadioItem value='14px'>
+              <DropdownMenuRadioItem value='14px' onSelect={(e) => e.preventDefault()}>
                 Pequeno
               </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value='16px'>Médio</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value='20px'>Grande</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value='16px' onSelect={(e) => e.preventDefault()}>Médio</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value='20px' onSelect={(e) => e.preventDefault()}>Grande</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuSubContent>
         </DropdownMenuSub>

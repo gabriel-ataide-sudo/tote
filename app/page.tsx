@@ -1,20 +1,25 @@
-// app/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { SettingsMenu } from '@/components/SettingMenu';
+import { useWindowPosition } from '@/app/hooks/useWindowPosition';
+import { useSettingsPersistence } from '@/app/hooks/useSettingsPersistence';
 import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Button } from '@/components/ui/button';
-import { Play, Square, Loader2 } from 'lucide-react';
+import { Play, Square, Loader2, X } from 'lucide-react';
 
 export default function Home() {
-  // Estados de Configuração Visual (Restaurados para os defaults do código original)
-  const [position, setPosition] = useState('middle');
-  const [fontFamily, setFontFamily] = useState('sans');
-  const [fontWeight, setFontWeight] = useState('normal');
-  const [fontSize, setFontSize] = useState('16px');
-  const [transparency, setTransparency] = useState('100');
+  const { position, moveWindow } = useWindowPosition();
+  const { settings, updateSetting, loaded } = useSettingsPersistence();
+
+  // Sync position when settings are loaded
+  useEffect(() => {
+    if (loaded) {
+      moveWindow(settings.position);
+    }
+  }, [loaded, settings.position, moveWindow]);
 
   // Estados da Aplicação de Transcrição
   const [subtitle, setSubtitle] = useState('As legendas irão aparecer aqui...');
@@ -86,86 +91,116 @@ export default function Home() {
     };
   }, [isRecording]);
 
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Estilos dinâmicos
   const textStyle = {
     fontFamily:
-      fontFamily === 'sans'
+      settings.fontFamily === 'sans'
         ? 'var(--font-sans)'
-        : fontFamily === 'serif'
-        ? 'serif'
-        : 'monospace',
-    fontWeight: fontWeight as any,
-    fontSize: fontSize,
-    opacity: parseInt(transparency) / 100,
+        : settings.fontFamily === 'serif'
+          ? 'serif'
+          : 'monospace',
+    fontWeight: settings.fontWeight as any,
+    fontSize: settings.fontSize,
     color: theme === 'dark' ? 'rgb(228 228 231)' : 'rgb(39 39 42)', // Cor do texto baseada no tema
   };
 
-  // Classe de fundo restaurada (bg-zinc-900 / bg-white)
-  const boxClass = theme === 'dark' ? 'bg-zinc-900' : 'bg-white';
+  const opacityValue = parseInt(settings.transparency) / 100;
+  const backgroundColor = theme === 'dark'
+    ? `rgba(24, 24, 27, ${opacityValue})` // zinc-900
+    : `rgba(255, 255, 255, ${opacityValue})`; // white
+
+  if (!mounted) return null;
 
   return (
-    <div className='flex min-h-screen items-center justify-center bg-zinc-100 font-sans dark:bg-zinc-950'>
-      <main className='container p-4'>
-        <div
-          className={`relative flex flex-col rounded-lg border p-6 shadow-sm ${boxClass}`}
-        >
-          {/* Header com Controles e Configurações */}
-          <div className='mb-4 flex items-center justify-between'>
-            <h1 className='text-lg font-semibold text-black dark:text-zinc-50'>
-              Texto recebido da IA
-            </h1>
+    <div
+      className="flex h-screen w-full flex-col overflow-hidden bg-transparent"
+    >
+      <div
+        className="relative flex flex-col w-full h-[200px] overflow-hidden rounded-xl border border-white/10 shadow-sm"
+        style={{ backgroundColor }}
+      >
+        {/* Drag Region */}
+        <div data-tauri-drag-region className="h-6 w-full cursor-move bg-transparent absolute top-0 left-0 z-10" />
 
-            <div className='flex items-center gap-4'>
-              <Button
-                onClick={toggleTranscription}
-                disabled={isConnecting}
-                variant={isRecording ? 'destructive' : 'default'}
-                className='flex items-center gap-2'
-              >
-                {isConnecting ? (
-                  <Loader2 className='h-4 w-4 animate-spin' />
-                ) : isRecording ? (
-                  <>
-                    <Square className='h-4 w-4 fill-current' /> Parar
-                  </>
-                ) : (
-                  <>
-                    <Play className='h-4 w-4 fill-current' /> Iniciar
-                  </>
-                )}
-              </Button>
+        <main className='flex-1 px-4 pb-2 pt-2 relative'>
 
-              {/* Dropdown menu */}
-              <SettingsMenu
-                position={position}
-                setPosition={setPosition}
-                fontFamily={fontFamily}
-                setFontFamily={setFontFamily}
-                fontWeight={fontWeight}
-                setFontWeight={setFontWeight}
-                fontSize={fontSize}
-                setFontSize={setFontSize}
-                transparency={transparency}
-                setTransparency={setTransparency}
-                theme={theme}
-                setTheme={setTheme}
-              />
+
+          <div className='relative flex h-full flex-col'>
+            {/* Header com Controles e Configurações */}
+            <div className='mb-2 flex items-center justify-between'>
+              <h1 className='text-sm font-semibold text-zinc-500 dark:text-zinc-400'>
+                Live Subtitles
+              </h1>
+
+              <div className='flex items-center gap-2'>
+                <Button
+                  onClick={toggleTranscription}
+                  disabled={isConnecting}
+                  variant={isRecording ? 'destructive' : 'ghost'}
+                  size="sm"
+                  className='h-8 gap-2 z-20 relative'
+                >
+                  {isConnecting ? (
+                    <Loader2 className='h-3 w-3 animate-spin' />
+                  ) : isRecording ? (
+                    <Square className='h-3 w-3 fill-current' />
+                  ) : (
+                    <Play className='h-3 w-3 fill-current' />
+                  )}
+                </Button>
+
+                {/* Dropdown menu */}
+                <div className="z-20 relative">
+                  <SettingsMenu
+                    position={settings.position}
+                    setPosition={(pos) => {
+                      updateSetting('position', pos);
+                      moveWindow(pos as any);
+                    }}
+                    fontFamily={settings.fontFamily}
+                    setFontFamily={(val) => updateSetting('fontFamily', val)}
+                    fontWeight={settings.fontWeight}
+                    setFontWeight={(val) => updateSetting('fontWeight', val)}
+                    fontSize={settings.fontSize}
+                    setFontSize={(val) => updateSetting('fontSize', val)}
+                    transparency={settings.transparency}
+                    setTransparency={(val) => updateSetting('transparency', val)}
+                    theme={theme}
+                    setTheme={setTheme}
+
+                  />
+                </div>
+
+                {/* Close Button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 hover:bg-red-500 hover:text-white z-20 relative"
+                  onClick={() => getCurrentWindow().close()}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </div>
 
-          {/* Subtitle Text Box */}
-          <div className='min-h-[120px] w-full rounded-md border bg-zinc-50 dark:bg-zinc-800 p-4 relative overflow-hidden'>
-            <div className='flex flex-col justify-end h-full w-full'>
+            {/* Subtitle Text Box */}
+            <div className='flex-1 w-full overflow-y-auto scrollbar-hide z-20 relative'>
               <p
-                className='w-full whitespace-pre-wrap leading-snug text-center'
+                className='w-full whitespace-pre-wrap leading-snug text-center drop-shadow-md'
                 style={textStyle}
               >
                 {subtitle}
               </p>
             </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

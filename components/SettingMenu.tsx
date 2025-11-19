@@ -32,11 +32,12 @@ interface SettingsMenuProps {
   setTransparency: (value: string) => void;
   theme?: string;
   setTheme: (theme: string) => void;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function SettingsMenu(props: SettingsMenuProps) {
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={props.onOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button variant='ghost' size='icon'>
           <Settings className='h-5 w-5 text-zinc-600 dark:text-zinc-400' />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTheme } from 'next-themes';
 import { SettingsMenu } from '@/components/SettingMenu';
 import { useWindowPosition } from '@/app/hooks/useWindowPosition';
@@ -13,6 +13,7 @@ import { Play, Square, Loader2, X } from 'lucide-react';
 export default function Home() {
   const { position, moveWindow } = useWindowPosition();
   const { settings, updateSetting, loaded } = useSettingsPersistence();
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   // Sync position when settings are loaded
   useEffect(() => {
@@ -23,6 +24,13 @@ export default function Home() {
 
   // Estados da Aplicação de Transcrição
   const [subtitle, setSubtitle] = useState('As legendas irão aparecer aqui...');
+
+  // Auto-scroll to bottom when subtitle changes
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [subtitle]);
   const [isRecording, setIsRecording] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -108,6 +116,7 @@ export default function Home() {
     fontWeight: settings.fontWeight as any,
     fontSize: settings.fontSize,
     color: theme === 'dark' ? 'rgb(228 228 231)' : 'rgb(39 39 42)', // Cor do texto baseada no tema
+    transition: 'all 0.3s ease',
   };
 
   const opacityValue = parseInt(settings.transparency) / 100;
@@ -190,9 +199,12 @@ export default function Home() {
             </div>
 
             {/* Subtitle Text Box */}
-            <div className='flex-1 w-full overflow-y-auto scrollbar-hide z-20 relative'>
+            <div
+              ref={scrollRef}
+              className='flex-1 w-full overflow-y-auto scrollbar-hide z-20 relative scroll-smooth mask-gradient'
+            >
               <p
-                className='w-full whitespace-pre-wrap leading-snug text-center drop-shadow-md'
+                className='w-full whitespace-pre-wrap leading-relaxed text-center drop-shadow-md py-4'
                 style={textStyle}
               >
                 {subtitle}

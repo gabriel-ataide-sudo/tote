@@ -131,80 +131,72 @@ export default function Home() {
       className="flex h-screen w-full flex-col overflow-hidden bg-transparent"
     >
       <div
-        className="relative flex flex-col w-full h-[200px] overflow-hidden rounded-xl border border-white/10 shadow-sm"
+        className="relative flex flex-col w-full h-auto min-h-[80px] overflow-hidden rounded-xl border border-white/10 shadow-sm"
         style={{ backgroundColor }}
       >
         {/* Drag Region */}
         <div data-tauri-drag-region className="h-6 w-full cursor-move bg-transparent absolute top-0 left-0 z-10" />
 
-        <main className='flex-1 px-4 pb-2 pt-2 relative'>
-
-
+        <main className='flex-1 px-4 pb-3 pt-3 relative'>
           <div className='relative flex h-full flex-col'>
-            {/* Header com Controles e Configurações */}
-            <div className='mb-2 flex items-center justify-between'>
-              <h1 className='text-sm font-semibold text-zinc-500 dark:text-zinc-400'>
-                Live Subtitles
-              </h1>
+            {/* Header com Controles - Compact */}
+            <div className='absolute top-2 right-2 flex items-center gap-2 z-30'>
+              <Button
+                onClick={toggleTranscription}
+                disabled={isConnecting}
+                variant={isRecording ? 'destructive' : 'ghost'}
+                size="sm"
+                className='h-7 gap-2'
+              >
+                {isConnecting ? (
+                  <Loader2 className='h-3 w-3 animate-spin' />
+                ) : isRecording ? (
+                  <Square className='h-3 w-3 fill-current' />
+                ) : (
+                  <Play className='h-3 w-3 fill-current' />
+                )}
+              </Button>
 
-              <div className='flex items-center gap-2'>
-                <Button
-                  onClick={toggleTranscription}
-                  disabled={isConnecting}
-                  variant={isRecording ? 'destructive' : 'ghost'}
-                  size="sm"
-                  className='h-8 gap-2 z-20 relative'
-                >
-                  {isConnecting ? (
-                    <Loader2 className='h-3 w-3 animate-spin' />
-                  ) : isRecording ? (
-                    <Square className='h-3 w-3 fill-current' />
-                  ) : (
-                    <Play className='h-3 w-3 fill-current' />
-                  )}
-                </Button>
-
-                {/* Dropdown menu */}
-                <div className="z-20 relative">
-                  <SettingsMenu
-                    position={settings.position}
-                    setPosition={(pos) => {
-                      updateSetting('position', pos);
-                      moveWindow(pos as any);
-                    }}
-                    fontFamily={settings.fontFamily}
-                    setFontFamily={(val) => updateSetting('fontFamily', val)}
-                    fontWeight={settings.fontWeight}
-                    setFontWeight={(val) => updateSetting('fontWeight', val)}
-                    fontSize={settings.fontSize}
-                    setFontSize={(val) => updateSetting('fontSize', val)}
-                    transparency={settings.transparency}
-                    setTransparency={(val) => updateSetting('transparency', val)}
-                    theme={theme}
-                    setTheme={setTheme}
-
-                  />
-                </div>
-
-                {/* Close Button */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 hover:bg-red-500 hover:text-white z-20 relative"
-                  onClick={() => getCurrentWindow().close()}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+              {/* Dropdown menu */}
+              <div className="relative">
+                <SettingsMenu
+                  position={settings.position}
+                  setPosition={(pos) => {
+                    updateSetting('position', pos);
+                    moveWindow(pos as any);
+                  }}
+                  fontFamily={settings.fontFamily}
+                  setFontFamily={(val) => updateSetting('fontFamily', val)}
+                  fontWeight={settings.fontWeight}
+                  setFontWeight={(val) => updateSetting('fontWeight', val)}
+                  fontSize={settings.fontSize}
+                  setFontSize={(val) => updateSetting('fontSize', val)}
+                  transparency={settings.transparency}
+                  setTransparency={(val) => updateSetting('transparency', val)}
+                  theme={theme}
+                  setTheme={setTheme}
+                />
               </div>
+
+              {/* Close Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 hover:bg-red-500 hover:text-white"
+                onClick={() => getCurrentWindow().close()}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
 
             {/* Subtitle Text Box */}
             <div
               ref={scrollRef}
-              className='flex-1 w-full overflow-y-auto scrollbar-hide z-20 relative scroll-smooth mask-gradient'
+              className='flex items-end w-full overflow-y-auto scrollbar-hide z-20 relative px-8'
+              style={{ maxHeight: `calc(${settings.fontSize} * 1.625 * 2)` }}
             >
               <p
-                className='w-full whitespace-pre-wrap leading-relaxed text-center drop-shadow-md py-4'
+                className='w-full whitespace-pre-wrap leading-relaxed text-left drop-shadow-md max-w-[90%]'
                 style={textStyle}
               >
                 {subtitle}

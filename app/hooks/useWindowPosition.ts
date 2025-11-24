@@ -17,9 +17,9 @@ export const useWindowPosition = () => {
       const screenHeight = monitor.size.height;
       const scaleFactor = monitor.scaleFactor;
 
-      // Set a fixed height for the subtitle window (e.g., 200 logical pixels)
+      // Set a fixed height for the subtitle window (e.g., 150 logical pixels)
       // We can adjust this or make it dynamic later
-      const windowHeight = 200 * scaleFactor;
+      const windowHeight = 150 * scaleFactor;
       const windowWidth = screenWidth * 0.8; // 80% of screen width
 
       await appWindow.setSize(new PhysicalSize(Math.round(windowWidth), Math.round(windowHeight)));

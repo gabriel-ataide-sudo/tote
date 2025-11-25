@@ -9,6 +9,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Button } from '@/components/ui/button';
 import { Play, Square, Loader2, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Home() {
   const { position, moveWindow } = useWindowPosition();
@@ -23,7 +24,7 @@ export default function Home() {
   }, [loaded, settings.position, moveWindow]);
 
   // Estados da Aplicação de Transcrição
-  const [subtitle, setSubtitle] = useState('As legendas irão aparecer aqui...');
+  const [subtitle, setSubtitle] = useState('');
 
   // Auto-scroll to bottom when subtitle changes
   useEffect(() => {
@@ -55,7 +56,7 @@ export default function Home() {
           await invoke('iniciar_wrapper', {
             host: WHISPER_HOST,
             porta: WHISPER_PORT,
-            limite_caracteres: 300,
+            limite_caracteres: 2000,
             comprimento_minimo: 0.8,
           });
         } catch (e: any) {
@@ -116,7 +117,7 @@ export default function Home() {
     fontWeight: settings.fontWeight as any,
     fontSize: settings.fontSize,
     color: theme === 'dark' ? 'rgb(228 228 231)' : 'rgb(39 39 42)', // Cor do texto baseada no tema
-    transition: 'all 0.3s ease',
+    transition: 'color 0.3s ease',
   };
 
   const opacityValue = parseInt(settings.transparency) / 100;
@@ -131,11 +132,12 @@ export default function Home() {
       className="flex h-screen w-full flex-col overflow-hidden bg-transparent"
     >
       <div
+        data-tauri-drag-region
         className="relative flex flex-col w-full h-auto min-h-[80px] overflow-hidden rounded-xl border border-white/10 shadow-sm"
         style={{ backgroundColor }}
       >
-        {/* Drag Region */}
-        <div data-tauri-drag-region className="h-6 w-full cursor-move bg-transparent absolute top-0 left-0 z-10" />
+        {/* Drag Region - Transparent overlay for extra safety, though parent has it too */}
+        <div data-tauri-drag-region className="absolute inset-0 z-0" />
 
         <main className='flex-1 px-4 pb-3 pt-3 relative'>
           <div className='relative flex h-full flex-col'>
@@ -192,19 +194,53 @@ export default function Home() {
             {/* Subtitle Text Box */}
             <div
               ref={scrollRef}
-              className='flex items-end w-full overflow-y-auto scrollbar-hide z-20 relative px-8'
+              className='flex flex-col w-full h-full overflow-y-auto scrollbar-hide z-20 relative px-8'
               style={{ maxHeight: `calc(${settings.fontSize} * 1.625 * 2)` }}
             >
-              <p
-                className='w-full whitespace-pre-wrap leading-relaxed text-left drop-shadow-md max-w-[90%]'
-                style={textStyle}
-              >
-                {subtitle}
-              </p>
+              <div className="flex flex-col w-full max-w-3xl mx-auto">
+                <AnimatePresence>
+                  {subtitle ? (
+                    subtitle.split(/\r?\n/).map((line, index) => (
+                      <motion.p
+                        key={index}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                        className='w-full whitespace-pre-wrap leading-relaxed text-left drop-shadow-md max-w-[90%] break-words relative z-10'
+                        style={textStyle}
+                      >
+                        {line}
+                      </motion.p>
+                    ))
+                  ) : isRecording ? (
+                    <motion.p
+                      key="listening"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 0.5 }}
+                      exit={{ opacity: 0 }}
+                      className='w-full text-center italic relative z-10'
+                      style={{ ...textStyle, fontSize: `calc(${settings.fontSize} * 0.8)` }}
+                    >
+                      Ouvindo...
+                    </motion.p>
+                  ) : (
+                    <motion.p
+                      key="placeholder"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 0.5 }}
+                      exit={{ opacity: 0 }}
+                      className='w-full text-center italic relative z-10'
+                      style={{ ...textStyle, fontSize: `calc(${settings.fontSize} * 0.8)` }}
+                    >
+                      As legendas vão aparecer aqui...
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
-        </main>
-      </div>
-    </div>
+        </main >
+      </div >
+    </div >
   );
 }

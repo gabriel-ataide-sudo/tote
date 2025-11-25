@@ -4,7 +4,7 @@ import { currentMonitor } from '@tauri-apps/api/window';
 import { PhysicalPosition, PhysicalSize } from '@tauri-apps/api/dpi';
 
 export const useWindowPosition = () => {
-  const [position, setPosition] = useState<'top' | 'bottom' | 'middle'>('middle');
+  const [position, setPosition] = useState<'top' | 'bottom' | 'middle'>('top');
 
   const moveWindow = useCallback(async (newPosition: 'top' | 'bottom' | 'middle') => {
     try {
@@ -20,19 +20,20 @@ export const useWindowPosition = () => {
       // Set a fixed height for the subtitle window (e.g., 150 logical pixels)
       // We can adjust this or make it dynamic later
       const windowHeight = 150 * scaleFactor;
-      const windowWidth = screenWidth * 0.8; // 80% of screen width
+      const windowWidth = screenWidth; // 100% of screen width
+      // const windowWidth = screenWidth * 0.8; // 80% of screen width
 
       await appWindow.setSize(new PhysicalSize(Math.round(windowWidth), Math.round(windowHeight)));
 
-      let x = (screenWidth - windowWidth) / 2;
+      let x = 0;
       let y = 0;
 
       switch (newPosition) {
         case 'top':
-          y = 50 * scaleFactor; // Slight margin from top
+          y = 0; // Start at the very top
           break;
         case 'bottom':
-          y = screenHeight - windowHeight - (50 * scaleFactor); // Slight margin from bottom
+          y = screenHeight - windowHeight; // Start at the very bottom
           break;
         case 'middle':
           y = (screenHeight - windowHeight) / 2;

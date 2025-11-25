@@ -13,12 +13,12 @@
     "windows": [
       {
         "title": "tote",
-        "width": 800,
-        "height": 200,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
-        "skipTaskbar": false
+        "skipTaskbar": false,
+        "maximizable": false,
+        "resizable": true
       }
     ],
     "security": {

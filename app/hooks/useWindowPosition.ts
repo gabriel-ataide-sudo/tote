@@ -6,7 +6,7 @@ import { PhysicalPosition, PhysicalSize } from '@tauri-apps/api/dpi';
 export const useWindowPosition = () => {
   const [position, setPosition] = useState<'top' | 'bottom' | 'middle'>('top');
 
-  const moveWindow = useCallback(async (newPosition: 'top' | 'bottom' | 'middle') => {
+  const moveWindow = useCallback(async (newPosition: 'top' | 'bottom' | 'middle', height?: number) => {
     try {
       const appWindow = getCurrentWindow();
       const monitor = await currentMonitor();
@@ -17,26 +17,30 @@ export const useWindowPosition = () => {
       const screenHeight = monitor.size.height;
       const scaleFactor = monitor.scaleFactor;
 
-      // Set a fixed height for the subtitle window (e.g., 150 logical pixels)
-      // We can adjust this or make it dynamic later
-      const windowHeight = 150 * scaleFactor;
+      // Use provided height or default to 150
+      // If height is provided, we assume it's in logical pixels, so we multiply by scaleFactor
+      const logicalHeight = height || 150;
+      const windowHeight = logicalHeight * scaleFactor;
       const windowWidth = screenWidth; // 100% of screen width
-      // const windowWidth = screenWidth * 0.8; // 80% of screen width
 
       await appWindow.setSize(new PhysicalSize(Math.round(windowWidth), Math.round(windowHeight)));
 
-      let x = 0;
-      let y = 0;
+      // Center the window to ensure correct X alignment, then adjust Y
+      await appWindow.center();
+      const centeredPos = await appWindow.outerPosition();
+
+      let x = centeredPos.x;
+      let y = monitor.position.y;
 
       switch (newPosition) {
         case 'top':
-          y = 0; // Start at the very top
+          // y is already at the top of the monitor
           break;
         case 'bottom':
-          y = screenHeight - windowHeight; // Start at the very bottom
+          y += screenHeight - windowHeight; // Start at the very bottom
           break;
         case 'middle':
-          y = (screenHeight - windowHeight) / 2;
+          y += (screenHeight - windowHeight) / 2;
           break;
       }
 
@@ -47,11 +51,7 @@ export const useWindowPosition = () => {
     }
   }, []);
 
-  // Initial setup or listener if needed
-  useEffect(() => {
-    // Optional: Set initial position
-    moveWindow(position);
-  }, []);
+
 
   return { position, moveWindow };
 };

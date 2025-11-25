@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { SettingsMenu } from '@/components/SettingMenu';
 import { useWindowPosition } from '@/app/hooks/useWindowPosition';
@@ -19,15 +19,19 @@ export default function Home() {
   // Sync position when settings are loaded
   useEffect(() => {
     if (loaded) {
-      moveWindow(settings.position);
+      const fontSizeValue = parseInt(settings.fontSize);
+      // Height calculation: (fontSize * lineHeight * lines) + padding
+      // padding: pt-3 (12px) + pb-3 (12px) + extra buffer
+      const height = (fontSizeValue * 1.625 * 2.5) + 32;
+      moveWindow(settings.position, height);
     }
-  }, [loaded, settings.position, moveWindow]);
+  }, [loaded, settings.position, settings.fontSize, moveWindow]);
 
   // Estados da Aplicação de Transcrição
   const [subtitle, setSubtitle] = useState('');
 
   // Auto-scroll to bottom when subtitle changes
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
@@ -57,7 +61,7 @@ export default function Home() {
             host: WHISPER_HOST,
             porta: WHISPER_PORT,
             limite_caracteres: 2000,
-            comprimento_minimo: 0.8,
+            comprimento_minimo: 0.1,
           });
         } catch (e: any) {
           if (typeof e === 'string' && !e.includes('Wrapper já foi iniciado')) {
@@ -133,13 +137,13 @@ export default function Home() {
     >
       <div
         data-tauri-drag-region
-        className="relative flex flex-col w-full h-auto min-h-[80px] overflow-hidden rounded-xl border border-white/10 shadow-sm"
+        className="relative flex flex-col w-full h-full overflow-hidden border border-white/10 shadow-sm"
         style={{ backgroundColor }}
       >
         {/* Drag Region - Transparent overlay for extra safety, though parent has it too */}
         <div data-tauri-drag-region className="absolute inset-0 z-0" />
 
-        <main className='flex-1 px-4 pb-3 pt-3 relative'>
+        <main data-tauri-drag-region className='flex-1 px-4 pb-3 pt-3 relative'>
           <div className='relative flex h-full flex-col'>
             {/* Header com Controles - Compact */}
             <div className='absolute top-2 right-2 flex items-center gap-2 z-30'>
@@ -165,7 +169,9 @@ export default function Home() {
                   position={settings.position}
                   setPosition={(pos) => {
                     updateSetting('position', pos);
-                    moveWindow(pos as any);
+                    const fontSizeValue = parseInt(settings.fontSize);
+                    const height = (fontSizeValue * 1.625 * 2.5) + 32;
+                    moveWindow(pos as any, height);
                   }}
                   fontFamily={settings.fontFamily}
                   setFontFamily={(val) => updateSetting('fontFamily', val)}
@@ -195,47 +201,61 @@ export default function Home() {
             <div
               ref={scrollRef}
               className='flex flex-col w-full h-full overflow-y-auto scrollbar-hide z-20 relative px-8'
-              style={{ maxHeight: `calc(${settings.fontSize} * 1.625 * 2)` }}
+              data-tauri-drag-region
+              style={{ maxHeight: `calc(${settings.fontSize} * 1.625 * 2.5)` }}
             >
-              <div className="flex flex-col w-full max-w-3xl mx-auto">
-                <AnimatePresence>
-                  {subtitle ? (
-                    subtitle.split(/\r?\n/).map((line, index) => (
+              <div className="flex flex-col w-full max-w-3xl mx-auto min-h-full" data-tauri-drag-region>
+                {/* Text Container */}
+                {subtitle ? (
+                  <div
+                    className="w-full whitespace-pre-wrap leading-relaxed text-left drop-shadow-md max-w-[90%] break-words relative z-10"
+                    style={textStyle}
+                  >
+                    {subtitle.split(/(\s+)/).map((part, index) => {
+                      if (part.match(/\s+/)) {
+                        return <span key={index}>{part}</span>;
+                      }
+                      if (part.length === 0) return null;
+                      return (
+                        <motion.span
+                          key={index}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.05 }}
+                          className="inline-block"
+                        >
+                          {part}
+                        </motion.span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <AnimatePresence mode="wait">
+                    {isRecording ? (
                       <motion.p
-                        key={index}
+                        key="listening"
                         initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.3 }}
-                        className='w-full whitespace-pre-wrap leading-relaxed text-left drop-shadow-md max-w-[90%] break-words relative z-10'
-                        style={textStyle}
+                        animate={{ opacity: 0.5 }}
+                        exit={{ opacity: 0 }}
+                        className='w-full text-center italic relative z-10 my-auto'
+                        style={{ ...textStyle, fontSize: `calc(${settings.fontSize} * 0.8)` }}
                       >
-                        {line}
+                        Ouvindo...
                       </motion.p>
-                    ))
-                  ) : isRecording ? (
-                    <motion.p
-                      key="listening"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 0.5 }}
-                      exit={{ opacity: 0 }}
-                      className='w-full text-center italic relative z-10'
-                      style={{ ...textStyle, fontSize: `calc(${settings.fontSize} * 0.8)` }}
-                    >
-                      Ouvindo...
-                    </motion.p>
-                  ) : (
-                    <motion.p
-                      key="placeholder"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 0.5 }}
-                      exit={{ opacity: 0 }}
-                      className='w-full text-center italic relative z-10'
-                      style={{ ...textStyle, fontSize: `calc(${settings.fontSize} * 0.8)` }}
-                    >
-                      As legendas vão aparecer aqui...
-                    </motion.p>
-                  )}
-                </AnimatePresence>
+                    ) : (
+                      <motion.p
+                        key="placeholder"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 0.5 }}
+                        exit={{ opacity: 0 }}
+                        className='w-full text-center italic relative z-10 my-auto'
+                        style={{ ...textStyle, fontSize: `calc(${settings.fontSize} * 0.8)` }}
+                      >
+                        As legendas vão aparecer aqui...
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+                )}
               </div>
             </div>
           </div>

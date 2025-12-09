@@ -44,15 +44,15 @@ export function SettingsMenu(props: SettingsMenuProps) {
   return (
     <DropdownMenu onOpenChange={props.onOpenChange}>
       <DropdownMenuTrigger asChild>
-        <Button variant='ghost' size='icon'>
+        <Button variant='ghost' size='icon' className='h-8 w-8'>
           <Settings className='h-5 w-5 text-zinc-600 dark:text-zinc-400' />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className='w-80 max-w-[calc(100vw-1rem)]' sideOffset={10} align="end">
-        <DropdownMenuLabel>Configurações</DropdownMenuLabel>
+        <DropdownMenuLabel className="select-none">Configurações</DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        <div className="p-2 space-y-4">
+        <div className="p-2 space-y-4 select-none">
           <PositionSettings {...props} />
           <DropdownMenuSeparator />
           <TextSettings {...props} />

@@ -174,13 +174,14 @@ export default function Home() {
         <main data-tauri-drag-region className='flex-1 px-4 pb-3 pt-3 relative'>
           <div className='relative flex h-full flex-col'>
             {/* Header com Controles - Compact */}
-            <div className='absolute top-4 right-4 flex items-center gap-2 z-30'>
+            {/* Header com Controles - Compact */}
+            <div className='absolute top-1/2 -translate-y-1/2 right-4 flex items-center gap-2 z-30'>
               <Button
                 onClick={toggleTranscription}
                 disabled={isConnecting}
                 variant={isRecording ? 'destructive' : 'ghost'}
-                size="sm"
-                className='h-7 gap-2'
+                size="icon"
+                className='h-8 w-8'
               >
                 {isConnecting ? (
                   <Loader2 className='h-3 w-3 animate-spin' />
@@ -219,7 +220,7 @@ export default function Home() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 hover:bg-red-500 hover:text-white"
+                className="h-8 w-8 hover:bg-red-500 hover:text-white"
                 onClick={() => getCurrentWindow().close()}
               >
                 <X className="h-4 w-4" />
@@ -268,7 +269,7 @@ export default function Home() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 0.5 }}
                         exit={{ opacity: 0 }}
-                        className='w-full text-center italic relative z-10 my-auto'
+                        className='w-full text-center italic relative z-10 my-auto select-none'
                         style={{ ...textStyle, fontSize: `calc(${settings.fontSize} * 0.8)` }}
                         data-tauri-drag-region
                       >
@@ -280,7 +281,7 @@ export default function Home() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 0.5 }}
                         exit={{ opacity: 0 }}
-                        className='w-full text-center italic relative z-10 my-auto'
+                        className='w-full text-center italic relative z-10 my-auto select-none'
                         style={{ ...textStyle, fontSize: `calc(${settings.fontSize} * 0.8)` }}
                         data-tauri-drag-region
                       >

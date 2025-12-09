@@ -25,11 +25,8 @@ export const useWindowPosition = () => {
 
       await appWindow.setSize(new PhysicalSize(Math.round(windowWidth), Math.round(windowHeight)));
 
-      // Center the window to ensure correct X alignment, then adjust Y
-      await appWindow.center();
-      const centeredPos = await appWindow.outerPosition();
-
-      let x = centeredPos.x;
+      // Calculate position directly without centering first to prevent flicker
+      let x = monitor.position.x;
       let y = monitor.position.y;
 
       switch (newPosition) {
@@ -53,5 +50,74 @@ export const useWindowPosition = () => {
 
 
 
-  return { position, moveWindow };
+  const resizeWindow = useCallback(async (newHeight: number, anchor: 'top' | 'bottom' | 'middle') => {
+    try {
+      const appWindow = getCurrentWindow();
+      const monitor = await currentMonitor();
+      if (!monitor) return;
+
+      const scaleFactor = monitor.scaleFactor;
+      // Use innerSize to preserve content width (avoid growing by border width)
+      const currentInnerSize = await appWindow.innerSize();
+      // Use outerSize for screen boundary calculations
+      const currentOuterSize = await appWindow.outerSize();
+      const currentPos = await appWindow.outerPosition();
+
+      const targetHeight = Math.round(newHeight * scaleFactor);
+      
+      // If height hasn't changed (based on inner height), do nothing
+      if (Math.abs(targetHeight - currentInnerSize.height) < 1) return;
+
+      // We maintain the current INNER width
+      const targetWidth = currentInnerSize.width;
+
+      // Calculate border dimensions to estimate new outer size
+      const borderW = currentOuterSize.width - currentInnerSize.width;
+      const borderH = currentOuterSize.height - currentInnerSize.height;
+
+      const targetOuterHeight = targetHeight + borderH;
+      const targetOuterWidth = targetWidth + borderW;
+
+      const screenTop = monitor.position.y;
+      const screenBottom = monitor.position.y + monitor.size.height;
+      
+      const windowBottom = currentPos.y + currentOuterSize.height;
+      const distBottom = screenBottom - windowBottom;
+      const isAtBottom = distBottom < 50; 
+
+      let candidateY = currentPos.y;
+      if (isAtBottom) {
+          candidateY = windowBottom - targetOuterHeight;
+      }
+
+      const maxY = screenBottom - targetOuterHeight;
+      const clampedY = Math.max(screenTop, Math.min(candidateY, maxY));
+
+      const screenLeft = monitor.position.x;
+      const screenRight = monitor.position.x + monitor.size.width;
+      
+      // Use target OUTER width for clamping X
+      const maxX = screenRight - targetOuterWidth;
+      const clampedX = Math.max(screenLeft, Math.min(currentPos.x, maxX));
+
+      const growing = targetHeight > currentInnerSize.height;
+      const moving = Math.abs(clampedX - currentPos.x) > 1 || Math.abs(clampedY - currentPos.y) > 1;
+
+      if (growing) {
+          // If growing, Move first to secure the new top-left, then Expand
+          if (moving) await appWindow.setPosition(new PhysicalPosition(clampedX, Math.round(clampedY)));
+          // setSize sets INNER size
+          await appWindow.setSize(new PhysicalSize(targetWidth, targetHeight));
+      } else {
+          // If shrinking, Shrink first (to minimal size), then Move to new position
+          await appWindow.setSize(new PhysicalSize(targetWidth, targetHeight));
+          if (moving) await appWindow.setPosition(new PhysicalPosition(clampedX, Math.round(clampedY)));
+      }
+
+    } catch (error) {
+      console.error('Failed to resize window:', error);
+    }
+  }, []);
+
+  return { position, moveWindow, resizeWindow };
 };

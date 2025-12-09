@@ -48,7 +48,7 @@ export function SettingsMenu(props: SettingsMenuProps) {
           <Settings className='h-5 w-5 text-zinc-600 dark:text-zinc-400' />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className='w-80'>
+      <DropdownMenuContent className='w-80 max-w-[calc(100vw-1rem)]' sideOffset={10} align="end">
         <DropdownMenuLabel>Configurações</DropdownMenuLabel>
         <DropdownMenuSeparator />
 
@@ -125,7 +125,7 @@ function TextSettings({
         <Label className="text-sm font-medium">Texto</Label>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 min-[240px]:grid-cols-2 gap-2">
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Fonte</Label>
           <Select value={fontFamily} onValueChange={setFontFamily}>

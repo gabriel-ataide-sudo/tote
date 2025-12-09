@@ -12,23 +12,37 @@ import { Play, Square, Loader2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Home() {
-  const { position, moveWindow } = useWindowPosition();
+  const { position, moveWindow, resizeWindow } = useWindowPosition();
   const { settings, updateSetting, loaded } = useSettingsPersistence();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Sync position when settings are loaded
+  // Estados da Aplicação de Transcrição
+  const [subtitle, setSubtitle] = useState('');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Effect 1: Snap to preset position when position setting changes or apps loads
   useEffect(() => {
     if (loaded) {
       const fontSizeValue = parseInt(settings.fontSize);
-      // Height calculation: (fontSize * lineHeight * lines) + padding
-      // padding: pt-3 (12px) + pb-3 (12px) + extra buffer
-      const height = (fontSizeValue * 1.625 * 2.5) + 32;
-      moveWindow(settings.position, height);
-    }
-  }, [loaded, settings.position, settings.fontSize, moveWindow]);
+      const compactHeight = (fontSizeValue * 1.625 * 2.5) + 48;
+      const targetHeight = isSettingsOpen ? compactHeight + 350 : compactHeight;
 
-  // Estados da Aplicação de Transcrição
-  const [subtitle, setSubtitle] = useState('');
+      // This will snap the window to Top/Bottom/Mid of monitor
+      moveWindow(settings.position, targetHeight);
+    }
+  }, [loaded, settings.position, moveWindow]); // Dependencies: Only position changes cause snap
+
+  // Effect 2: Resize in place when settings toggle or content size changes
+  useEffect(() => {
+    if (loaded) {
+      const fontSizeValue = parseInt(settings.fontSize);
+      const compactHeight = (fontSizeValue * 1.625 * 2.5) + 48;
+      const targetHeight = isSettingsOpen ? compactHeight + 350 : compactHeight;
+
+      // This will only resize (and adjust Y if needed) relative to CURRENT position
+      resizeWindow(targetHeight, settings.position as any);
+    }
+  }, [isSettingsOpen, settings.fontSize, resizeWindow]); // Dependencies: Toggles and Font Size
 
   // Auto-scroll to bottom when subtitle changes
   useLayoutEffect(() => {
@@ -129,16 +143,30 @@ export default function Home() {
     ? `rgba(24, 24, 27, ${opacityValue})` // zinc-900
     : `rgba(255, 255, 255, ${opacityValue})`; // white
 
+  const compactHeight = (parseInt(settings.fontSize) * 1.625 * 2.5) + 48;
+
   if (!mounted) return null;
 
   return (
     <div
-      className="flex h-screen w-full flex-col overflow-hidden bg-transparent"
+      className={`flex h-screen w-full flex-col overflow-hidden bg-transparent ${
+        settings.position === 'bottom' ? 'justify-end' : settings.position === 'middle' ? 'justify-center' : 'justify-start'
+      }`}
     >
       <div
         data-tauri-drag-region
-        className="relative flex flex-col w-full h-full overflow-hidden border border-white/10 shadow-sm"
-        style={{ backgroundColor }}
+        className="relative flex flex-col w-full overflow-hidden border border-white/10 cursor-grab active:cursor-grabbing"
+        style={{ 
+          backgroundColor,
+          height: compactHeight, // Fixed height for the visual bar
+          // When settings are open, we allow overflow so the menu can be seen outside this bar
+          // BUT... if we use overflow-visible, the content inside (text) might spill?
+          // The text container has overflow-y-auto, so it should handle itself.
+          // The settings menu is in a Portal usually? No, in Tauri it might be inside DOM.
+          // If Radix uses Portal, standard overflow:hidden on this container might CLIP it if the portal root is inside?
+          // Radix Portals usually go to document.body. 
+          // If document.body is transparent, and window is large, we are good.
+        }}
       >
         {/* Drag Region - Transparent overlay for extra safety, though parent has it too */}
         <div data-tauri-drag-region className="absolute inset-0 z-0" />
@@ -146,7 +174,7 @@ export default function Home() {
         <main data-tauri-drag-region className='flex-1 px-4 pb-3 pt-3 relative'>
           <div className='relative flex h-full flex-col'>
             {/* Header com Controles - Compact */}
-            <div className='absolute top-2 right-2 flex items-center gap-2 z-30'>
+            <div className='absolute top-4 right-4 flex items-center gap-2 z-30'>
               <Button
                 onClick={toggleTranscription}
                 disabled={isConnecting}
@@ -170,7 +198,7 @@ export default function Home() {
                   setPosition={(pos) => {
                     updateSetting('position', pos);
                     const fontSizeValue = parseInt(settings.fontSize);
-                    const height = (fontSizeValue * 1.625 * 2.5) + 32;
+                    const height = (fontSizeValue * 1.625 * 2.5) + 48;
                     moveWindow(pos as any, height);
                   }}
                   fontFamily={settings.fontFamily}
@@ -183,6 +211,7 @@ export default function Home() {
                   setTransparency={(val) => updateSetting('transparency', val)}
                   theme={theme}
                   setTheme={setTheme}
+                  onOpenChange={setIsSettingsOpen}
                 />
               </div>
 
@@ -200,9 +229,9 @@ export default function Home() {
             {/* Subtitle Text Box */}
             <div
               ref={scrollRef}
-              className='flex flex-col w-full h-full overflow-y-auto scrollbar-hide z-20 relative px-8'
+              className='flex flex-col w-full h-full overflow-y-auto scrollbar-hide z-20 relative px-8 cursor-grab active:cursor-grabbing'
               data-tauri-drag-region
-              style={{ maxHeight: `calc(${settings.fontSize} * 1.625 * 2.5)` }}
+              style={{ maxHeight: `calc(${settings.fontSize} * 1.625 * 2.5 + 16px)` }}
             >
               <div className="flex flex-col w-full max-w-3xl mx-auto min-h-full" data-tauri-drag-region>
                 {/* Text Container */}
@@ -210,10 +239,11 @@ export default function Home() {
                   <div
                     className="w-full whitespace-pre-wrap leading-relaxed text-left drop-shadow-md max-w-[90%] break-words relative z-10"
                     style={textStyle}
+                    data-tauri-drag-region
                   >
                     {subtitle.split(/(\s+)/).map((part, index) => {
                       if (part.match(/\s+/)) {
-                        return <span key={index}>{part}</span>;
+                        return <span key={index} data-tauri-drag-region>{part}</span>;
                       }
                       if (part.length === 0) return null;
                       return (
@@ -223,6 +253,7 @@ export default function Home() {
                           animate={{ opacity: 1 }}
                           transition={{ duration: 0.05 }}
                           className="inline-block"
+                          data-tauri-drag-region
                         >
                           {part}
                         </motion.span>
@@ -239,6 +270,7 @@ export default function Home() {
                         exit={{ opacity: 0 }}
                         className='w-full text-center italic relative z-10 my-auto'
                         style={{ ...textStyle, fontSize: `calc(${settings.fontSize} * 0.8)` }}
+                        data-tauri-drag-region
                       >
                         Ouvindo...
                       </motion.p>
@@ -250,6 +282,7 @@ export default function Home() {
                         exit={{ opacity: 0 }}
                         className='w-full text-center italic relative z-10 my-auto'
                         style={{ ...textStyle, fontSize: `calc(${settings.fontSize} * 0.8)` }}
+                        data-tauri-drag-region
                       >
                         As legendas vão aparecer aqui...
                       </motion.p>

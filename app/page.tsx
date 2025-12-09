@@ -12,13 +12,14 @@ import { Play, Square, Loader2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Home() {
-  const { position, moveWindow, resizeWindow } = useWindowPosition();
+  const { position, moveWindow, resizeWindow, startDrag } = useWindowPosition();
   const { settings, updateSetting, loaded } = useSettingsPersistence();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Estados da Aplicação de Transcrição
   const [subtitle, setSubtitle] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isFullWidth, setIsFullWidth] = useState(false);
 
   // Effect 1: Snap to preset position when position setting changes or apps loads
   useEffect(() => {
@@ -28,9 +29,9 @@ export default function Home() {
       const targetHeight = isSettingsOpen ? compactHeight + 350 : compactHeight;
 
       // This will snap the window to Top/Bottom/Mid of monitor
-      moveWindow(settings.position, targetHeight);
+      moveWindow(settings.position, targetHeight, isFullWidth ? 1.0 : 0.95);
     }
-  }, [loaded, settings.position, moveWindow]); // Dependencies: Only position changes cause snap
+  }, [loaded, settings.position, moveWindow, isFullWidth]); // Dependencies: Only position changes cause snap
 
   // Effect 2: Resize in place when settings toggle or content size changes
   useEffect(() => {
@@ -153,13 +154,15 @@ export default function Home() {
 
     if (e.button === 0) {
       if (e.detail === 2) {
+        setIsFullWidth(true);
         updateSetting('position', 'top');
+        
         const fontSizeValue = parseInt(settings.fontSize);
         const height = (fontSizeValue * 1.625 * 2.5) + 48;
-        moveWindow('top', height);
+        moveWindow('top', height, 1.0);
         return;
       }
-      getCurrentWindow().startDragging();
+      startDrag(e);
     }
   };
 
@@ -215,10 +218,11 @@ export default function Home() {
                 <SettingsMenu
                   position={settings.position}
                   setPosition={(pos) => {
+                    setIsFullWidth(false);
                     updateSetting('position', pos);
                     const fontSizeValue = parseInt(settings.fontSize);
                     const height = (fontSizeValue * 1.625 * 2.5) + 48;
-                    moveWindow(pos as any, height);
+                    moveWindow(pos as any, height, 0.95);
                   }}
                   fontFamily={settings.fontFamily}
                   setFontFamily={(val) => updateSetting('fontFamily', val)}

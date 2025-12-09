@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { currentMonitor } from '@tauri-apps/api/window';
@@ -6,7 +7,7 @@ import { PhysicalPosition, PhysicalSize } from '@tauri-apps/api/dpi';
 export const useWindowPosition = () => {
   const [position, setPosition] = useState<'top' | 'bottom' | 'middle'>('top');
 
-  const moveWindow = useCallback(async (newPosition: 'top' | 'bottom' | 'middle', height?: number) => {
+  const moveWindow = useCallback(async (newPosition: 'top' | 'bottom' | 'middle', height?: number, widthPercent: number = 0.95) => {
     try {
       const appWindow = getCurrentWindow();
       const monitor = await currentMonitor();
@@ -16,18 +17,27 @@ export const useWindowPosition = () => {
       const screenWidth = monitor.size.width;
       const screenHeight = monitor.size.height;
       const scaleFactor = monitor.scaleFactor;
+      
+      // Measure current borders to compensate
+      const currentInner = await appWindow.innerSize();
+      const currentOuter = await appWindow.outerSize();
+      const totalBorderWidth = currentOuter.width - currentInner.width;
 
-      // Use provided height or default to 150
       // If height is provided, we assume it's in logical pixels, so we multiply by scaleFactor
       const logicalHeight = height || 150;
       const windowHeight = logicalHeight * scaleFactor;
-      const windowWidth = screenWidth * 0.95; // 95% of screen width
+      
+      const isFullWidth = widthPercent >= 0.99;
+      // If full width, we want OUTER width to be screenWidth
+      // setSize sets INNER width, so targetInner = screenWidth - totalBorderWidth
+      const windowWidth = isFullWidth ? (screenWidth - totalBorderWidth) : (screenWidth * widthPercent);
 
       await appWindow.setSize(new PhysicalSize(Math.round(windowWidth), Math.round(windowHeight)));
 
       // Calculate position directly without centering first to prevent flicker
-      // Center horizontally since we are not 100% width anymore
-      let x = monitor.position.x + (screenWidth - windowWidth) / 2;
+      // Center horizontally since we are not 100% width anymore 
+      // (Actually if isFullWidth, we are 100% outer width, so start at monitor X)
+      let x = isFullWidth ? monitor.position.x : monitor.position.x + (screenWidth - windowWidth) / 2;
       let y = monitor.position.y;
 
       switch (newPosition) {
@@ -48,8 +58,6 @@ export const useWindowPosition = () => {
       console.error('Failed to move window:', error);
     }
   }, []);
-
-
 
   const resizeWindow = useCallback(async (newHeight: number, anchor: 'top' | 'bottom' | 'middle') => {
     try {
@@ -120,5 +128,58 @@ export const useWindowPosition = () => {
     }
   }, []);
 
-  return { position, moveWindow, resizeWindow };
+  const startDrag = useCallback(async (event: React.MouseEvent) => {
+    try {
+      const appWindow = getCurrentWindow();
+      const monitor = await currentMonitor();
+      if (!monitor) return;
+
+      const scale = monitor.scaleFactor;
+      const initialWindowPos = await appWindow.outerPosition();
+      const initialWindowSize = await appWindow.outerSize();
+
+      // Convert mouse screen coords (CSS pixels) to Physical pixels
+      const mousePhysX = event.screenX * scale;
+      const mousePhysY = event.screenY * scale;
+
+      const offsetX = mousePhysX - initialWindowPos.x;
+      const offsetY = mousePhysY - initialWindowPos.y;
+
+      const screenLeft = monitor.position.x;
+      const screenTop = monitor.position.y;
+      const screenRight = monitor.position.x + monitor.size.width;
+      const screenBottom = monitor.position.y + monitor.size.height;
+
+      const handleMouseMove = async (moveEvent: MouseEvent) => {
+        const currentMousePhysX = moveEvent.screenX * scale;
+        const currentMousePhysY = moveEvent.screenY * scale;
+
+        let newX = currentMousePhysX - offsetX;
+        let newY = currentMousePhysY - offsetY;
+
+        // Clamp X position
+        newX = Math.max(screenLeft, newX);
+        newX = Math.min(screenRight - initialWindowSize.width, newX);
+
+        // Clamp Y position
+        newY = Math.max(screenTop, newY);
+        newY = Math.min(screenBottom - initialWindowSize.height, newY);
+
+        await appWindow.setPosition(new PhysicalPosition(Math.round(newX), Math.round(newY)));
+      };
+
+      const handleMouseUp = () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+
+    } catch (error) {
+      console.error('Failed to start window drag:', error);
+    }
+  }, []);
+
+  return { position, moveWindow, resizeWindow, startDrag };
 };

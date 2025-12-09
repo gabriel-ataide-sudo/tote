@@ -10,7 +10,7 @@ interface Settings {
 }
 
 const DEFAULT_SETTINGS: Settings = {
-    position: 'middle',
+    position: 'top',
     fontFamily: 'sans',
     fontWeight: 'normal',
     fontSize: '16px',

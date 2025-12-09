@@ -48,7 +48,7 @@ export function SettingsMenu(props: SettingsMenuProps) {
           <Settings className='h-5 w-5 text-zinc-600 dark:text-zinc-400' />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className='w-80 max-w-[calc(100vw-1rem)]' sideOffset={10} align="end">
+      <DropdownMenuContent className='w-80 max-w-[calc(100vw-1rem)]' sideOffset={10} align="end" side={props.position === 'bottom' ? 'top' : 'bottom'}>
         <DropdownMenuLabel className="select-none">Configurações</DropdownMenuLabel>
         <DropdownMenuSeparator />
 

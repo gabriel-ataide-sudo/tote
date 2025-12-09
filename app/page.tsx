@@ -186,11 +186,13 @@ export default function Home() {
            // DOCKING logic
            setPreDockPosition(currentApproxPos); // Save where we ACTUALLY were
            setIsFullWidth(true);
-           updateSetting('position', 'top'); // Force setting to top
+           
+           const targetDockPos = currentApproxPos === 'bottom' ? 'bottom' : 'top';
+           updateSetting('position', targetDockPos);
            
            const fontSizeValue = parseInt(settings.fontSize);
            const height = (fontSizeValue * 1.625 * 2.5) + 48;
-           moveWindow('top', height, 1.0);
+           moveWindow(targetDockPos as any, height, 1.0);
         } else {
            // RESTORING logic
            setIsFullWidth(false);
@@ -260,11 +262,13 @@ export default function Home() {
                 <SettingsMenu
                   position={settings.position}
                   setPosition={(pos) => {
-                    setIsFullWidth(false);
+                    const shouldStayDocked = isFullWidth && pos !== 'middle';
+                    setIsFullWidth(shouldStayDocked);
                     updateSetting('position', pos);
                     const fontSizeValue = parseInt(settings.fontSize);
                     const height = (fontSizeValue * 1.625 * 2.5) + 48;
-                    moveWindow(pos as any, height, 0.95);
+                    const widthPercent = shouldStayDocked ? 1.0 : 0.95;
+                    moveWindow(pos as any, height, widthPercent);
                   }}
                   fontFamily={settings.fontFamily}
                   setFontFamily={(val) => updateSetting('fontFamily', val)}

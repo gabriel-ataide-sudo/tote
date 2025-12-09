@@ -21,12 +21,13 @@ export const useWindowPosition = () => {
       // If height is provided, we assume it's in logical pixels, so we multiply by scaleFactor
       const logicalHeight = height || 150;
       const windowHeight = logicalHeight * scaleFactor;
-      const windowWidth = screenWidth; // 100% of screen width
+      const windowWidth = screenWidth * 0.95; // 95% of screen width
 
       await appWindow.setSize(new PhysicalSize(Math.round(windowWidth), Math.round(windowHeight)));
 
       // Calculate position directly without centering first to prevent flicker
-      let x = monitor.position.x;
+      // Center horizontally since we are not 100% width anymore
+      let x = monitor.position.x + (screenWidth - windowWidth) / 2;
       let y = monitor.position.y;
 
       switch (newPosition) {

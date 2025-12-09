@@ -241,21 +241,27 @@ export default function Home() {
             {/* Header com Controles - Compact */}
             {/* Header com Controles - Compact */}
             <div className='absolute top-1/2 -translate-y-1/2 right-4 flex items-center gap-2 z-30'>
-              <Button
+              <motion.button
                 onClick={toggleTranscription}
                 disabled={isConnecting}
-                variant={isRecording ? 'destructive' : 'ghost'}
-                size="icon"
-                className='h-8 w-8'
+                initial={false}
+                animate={{
+                  backgroundColor: isRecording ? '#ef4444' : '#22c55e', // red-500 : green-500
+                  borderRadius: isRecording ? '50%' : '8px', // circle : rounded-md
+                }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ duration: 0.3 }}
+                className={`h-8 w-8 flex items-center justify-center text-white shadow-md disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {isConnecting ? (
-                  <Loader2 className='h-3 w-3 animate-spin' />
+                  <Loader2 className='h-4 w-4 animate-spin' />
                 ) : isRecording ? (
                   <Square className='h-3 w-3 fill-current' />
                 ) : (
                   <Play className='h-3 w-3 fill-current' />
                 )}
-              </Button>
+              </motion.button>
 
               {/* Dropdown menu */}
               <div className="relative">
@@ -285,14 +291,14 @@ export default function Home() {
               </div>
 
               {/* Close Button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 hover:bg-red-500 hover:text-white"
+              <motion.button
+                whileHover={{ scale: 1.05, backgroundColor: "#ef4444", color: "#ffffff" }}
+                whileTap={{ scale: 0.95 }}
+                className="h-8 w-8 flex items-center justify-center rounded-md bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 shadow-md transition-colors"
                 onClick={() => getCurrentWindow().close()}
               >
                 <X className="h-4 w-4" />
-              </Button>
+              </motion.button>
             </div>
 
             {/* Subtitle Text Box */}

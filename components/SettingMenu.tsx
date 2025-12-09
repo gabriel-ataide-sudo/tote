@@ -2,6 +2,7 @@
 'use client';
 
 import { Settings, Type, Layout, Box, Sun, Moon } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -44,9 +45,13 @@ export function SettingsMenu(props: SettingsMenuProps) {
   return (
     <DropdownMenu onOpenChange={props.onOpenChange}>
       <DropdownMenuTrigger asChild>
-        <Button variant='ghost' size='icon' className='h-8 w-8'>
-          <Settings className='h-5 w-5 text-zinc-600 dark:text-zinc-400' />
-        </Button>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="h-8 w-8 flex items-center justify-center rounded-md bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 shadow-md"
+        >
+          <Settings className='h-4 w-4' />
+        </motion.button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className='w-80 max-w-[calc(100vw-1rem)]' sideOffset={10} align="end" side={props.position === 'bottom' ? 'top' : 'bottom'}>
         <DropdownMenuLabel className="select-none">Configurações</DropdownMenuLabel>

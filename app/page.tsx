@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { SettingsMenu } from '@/components/SettingMenu';
 import { useWindowPosition } from '@/app/hooks/useWindowPosition';
@@ -145,6 +145,24 @@ export default function Home() {
 
   const compactHeight = (parseInt(settings.fontSize) * 1.625 * 2.5) + 48;
 
+  const handleDragOrDoubleClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button, [role="button"], input, select, textarea, a')) {
+      return;
+    }
+
+    if (e.button === 0) {
+      if (e.detail === 2) {
+        updateSetting('position', 'top');
+        const fontSizeValue = parseInt(settings.fontSize);
+        const height = (fontSizeValue * 1.625 * 2.5) + 48;
+        moveWindow('top', height);
+        return;
+      }
+      getCurrentWindow().startDragging();
+    }
+  };
+
   if (!mounted) return null;
 
   return (
@@ -154,7 +172,7 @@ export default function Home() {
       }`}
     >
       <div
-        data-tauri-drag-region
+        onMouseDown={handleDragOrDoubleClick}
         className="relative flex flex-col w-full overflow-hidden border border-white/10 cursor-grab active:cursor-grabbing"
         style={{ 
           backgroundColor,
@@ -169,9 +187,9 @@ export default function Home() {
         }}
       >
         {/* Drag Region - Transparent overlay for extra safety, though parent has it too */}
-        <div data-tauri-drag-region className="absolute inset-0 z-0" />
+        <div className="absolute inset-0 z-0" />
 
-        <main data-tauri-drag-region className='flex-1 px-4 pb-3 pt-3 relative'>
+        <main className='flex-1 px-4 pb-3 pt-3 relative'>
           <div className='relative flex h-full flex-col'>
             {/* Header com Controles - Compact */}
             {/* Header com Controles - Compact */}
@@ -231,20 +249,20 @@ export default function Home() {
             <div
               ref={scrollRef}
               className='flex flex-col w-full h-full overflow-y-auto scrollbar-hide z-20 relative px-8 cursor-grab active:cursor-grabbing'
-              data-tauri-drag-region
+             
               style={{ maxHeight: `calc(${settings.fontSize} * 1.625 * 2.5 + 16px)` }}
             >
-              <div className="flex flex-col w-full max-w-3xl mx-auto min-h-full" data-tauri-drag-region>
+              <div className="flex flex-col w-full max-w-3xl mx-auto min-h-full">
                 {/* Text Container */}
                 {subtitle ? (
                   <div
                     className="w-full whitespace-pre-wrap leading-relaxed text-left drop-shadow-md max-w-[90%] break-words relative z-10"
                     style={textStyle}
-                    data-tauri-drag-region
+                   
                   >
                     {subtitle.split(/(\s+)/).map((part, index) => {
                       if (part.match(/\s+/)) {
-                        return <span key={index} data-tauri-drag-region>{part}</span>;
+                        return <span key={index}>{part}</span>;
                       }
                       if (part.length === 0) return null;
                       return (
@@ -254,7 +272,7 @@ export default function Home() {
                           animate={{ opacity: 1 }}
                           transition={{ duration: 0.05 }}
                           className="inline-block"
-                          data-tauri-drag-region
+                         
                         >
                           {part}
                         </motion.span>
@@ -271,7 +289,7 @@ export default function Home() {
                         exit={{ opacity: 0 }}
                         className='w-full text-center italic relative z-10 my-auto select-none'
                         style={{ ...textStyle, fontSize: `calc(${settings.fontSize} * 0.8)` }}
-                        data-tauri-drag-region
+                       
                       >
                         Ouvindo...
                       </motion.p>
@@ -283,7 +301,7 @@ export default function Home() {
                         exit={{ opacity: 0 }}
                         className='w-full text-center italic relative z-10 my-auto select-none'
                         style={{ ...textStyle, fontSize: `calc(${settings.fontSize} * 0.8)` }}
-                        data-tauri-drag-region
+                       
                       >
                         As legendas vão aparecer aqui...
                       </motion.p>

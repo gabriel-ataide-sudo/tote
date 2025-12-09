@@ -6,7 +6,7 @@ import { SettingsMenu } from '@/components/SettingMenu';
 import { useWindowPosition } from '@/app/hooks/useWindowPosition';
 import { useSettingsPersistence } from '@/app/hooks/useSettingsPersistence';
 import { invoke } from '@tauri-apps/api/core';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getCurrentWindow, currentMonitor } from '@tauri-apps/api/window';
 import { Button } from '@/components/ui/button';
 import { Play, Square, Loader2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,6 +20,7 @@ export default function Home() {
   const [subtitle, setSubtitle] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isFullWidth, setIsFullWidth] = useState(false);
+  const [preDockPosition, setPreDockPosition] = useState<string | null>(null);
 
   // Effect 1: Snap to preset position when position setting changes or apps loads
   useEffect(() => {
@@ -146,7 +147,7 @@ export default function Home() {
 
   const compactHeight = (parseInt(settings.fontSize) * 1.625 * 2.5) + 48;
 
-  const handleDragOrDoubleClick = (e: React.MouseEvent) => {
+  const handleDragOrDoubleClick = async (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest('button, [role="button"], input, select, textarea, a')) {
       return;
@@ -154,12 +155,53 @@ export default function Home() {
 
     if (e.button === 0) {
       if (e.detail === 2) {
-        setIsFullWidth(true);
-        updateSetting('position', 'top');
-        
-        const fontSizeValue = parseInt(settings.fontSize);
-        const height = (fontSizeValue * 1.625 * 2.5) + 48;
-        moveWindow('top', height, 1.0);
+        if (!isFullWidth) {
+           // Calculate the current position roughly to save it correctly
+           // Because the user might have dragged the window manually without updating 'settings.position'
+           let currentApproxPos = settings.position;
+           try {
+             const appWindow = getCurrentWindow();
+             const monitor = await currentMonitor();
+             const pos = await appWindow.outerPosition();
+             const size = await appWindow.outerSize();
+             
+             if (monitor) {
+                 const screenHeight = monitor.size.height;
+                 const centerY = pos.y + (size.height / 2);
+                 const relativeY = centerY - monitor.position.y;
+                 
+                 // Simple heuristic: Top third, Middle third, Bottom third
+                 if (relativeY < screenHeight / 3) {
+                     currentApproxPos = 'top';
+                 } else if (relativeY > (screenHeight * 2) / 3) {
+                     currentApproxPos = 'bottom';
+                 } else {
+                     currentApproxPos = 'middle';
+                 }
+             }
+           } catch (err) {
+               console.error("Error calculating position:", err);
+           }
+
+           // DOCKING logic
+           setPreDockPosition(currentApproxPos); // Save where we ACTUALLY were
+           setIsFullWidth(true);
+           updateSetting('position', 'top'); // Force setting to top
+           
+           const fontSizeValue = parseInt(settings.fontSize);
+           const height = (fontSizeValue * 1.625 * 2.5) + 48;
+           moveWindow('top', height, 1.0);
+        } else {
+           // RESTORING logic
+           setIsFullWidth(false);
+           const restorePos = (preDockPosition || 'bottom') as any; // Default backup
+           updateSetting('position', restorePos);
+
+           const fontSizeValue = parseInt(settings.fontSize);
+           const height = (fontSizeValue * 1.625 * 2.5) + 48;
+           moveWindow(restorePos, height, 0.95);
+           setPreDockPosition(null);
+        }
         return;
       }
       startDrag(e);

@@ -138,37 +138,58 @@ export const useWindowPosition = () => {
       const initialWindowPos = await appWindow.outerPosition();
       const initialWindowSize = await appWindow.outerSize();
 
-      // Convert mouse screen coords (CSS pixels) to Physical pixels
-      const mousePhysX = event.screenX * scale;
-      const mousePhysY = event.screenY * scale;
+      let isDragging = true;
+      const initialMouseScreenX = event.screenX;
+      const initialMouseScreenY = event.screenY;
 
-      const offsetX = mousePhysX - initialWindowPos.x;
-      const offsetY = mousePhysY - initialWindowPos.y;
+      // We'll trust screen coordinates from the event loop for smoother updates
+      // Instead of relying on react/synthetic events inside the loop
+      // We will poll the mouse using the events attached to window
+
+      let currentScreenX = initialMouseScreenX;
+      let currentScreenY = initialMouseScreenY;
 
       const screenLeft = monitor.position.x;
       const screenTop = monitor.position.y;
       const screenRight = monitor.position.x + monitor.size.width;
       const screenBottom = monitor.position.y + monitor.size.height;
 
-      const handleMouseMove = async (moveEvent: MouseEvent) => {
-        const currentMousePhysX = moveEvent.screenX * scale;
-        const currentMousePhysY = moveEvent.screenY * scale;
+      // Optimization: requestAnimationFrame loop
+      const dragLoop = async () => {
+          if (!isDragging) return;
 
-        let newX = currentMousePhysX - offsetX;
-        let newY = currentMousePhysY - offsetY;
+          const offsetX = (currentScreenX - initialMouseScreenX) * scale;
+          const offsetY = (currentScreenY - initialMouseScreenY) * scale;
 
-        // Clamp X position
-        newX = Math.max(screenLeft, newX);
-        newX = Math.min(screenRight - initialWindowSize.width, newX);
+          let newX = initialWindowPos.x + offsetX;
+          let newY = initialWindowPos.y + offsetY;
 
-        // Clamp Y position
-        newY = Math.max(screenTop, newY);
-        newY = Math.min(screenBottom - initialWindowSize.height, newY);
+           // Clamp X position
+          newX = Math.max(screenLeft, newX);
+          newX = Math.min(screenRight - initialWindowSize.width, newX);
 
-        await appWindow.setPosition(new PhysicalPosition(Math.round(newX), Math.round(newY)));
+          // Clamp Y position
+          newY = Math.max(screenTop, newY);
+          newY = Math.min(screenBottom - initialWindowSize.height, newY);
+
+          await appWindow.setPosition(new PhysicalPosition(Math.round(newX), Math.round(newY)));
+          
+          if (isDragging) {
+              requestAnimationFrame(dragLoop);
+          }
+      };
+      
+      // Start the loop
+      requestAnimationFrame(dragLoop);
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        // Just update the shared state, don't do heavy work here
+        currentScreenX = moveEvent.screenX;
+        currentScreenY = moveEvent.screenY;
       };
 
       const handleMouseUp = () => {
+        isDragging = false;
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('mouseup', handleMouseUp);
       };

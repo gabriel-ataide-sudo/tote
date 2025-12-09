@@ -10,6 +10,7 @@ import { getCurrentWindow, currentMonitor } from '@tauri-apps/api/window';
 import { Button } from '@/components/ui/button';
 import { Play, Square, Loader2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { TypewriterText } from '@/components/TypewriterText';
 
 export default function Home() {
   const { position, moveWindow, resizeWindow, startDrag } = useWindowPosition();
@@ -26,7 +27,7 @@ export default function Home() {
   useEffect(() => {
     if (loaded) {
       const fontSizeValue = parseInt(settings.fontSize);
-      const compactHeight = (fontSizeValue * 1.625 * 2.5) + 48;
+      const compactHeight = (fontSizeValue * 1.625 * 2.0) + 24;
       const targetHeight = isSettingsOpen ? compactHeight + 350 : compactHeight;
 
       // This will snap the window to Top/Bottom/Mid of monitor
@@ -38,7 +39,7 @@ export default function Home() {
   useEffect(() => {
     if (loaded) {
       const fontSizeValue = parseInt(settings.fontSize);
-      const compactHeight = (fontSizeValue * 1.625 * 2.5) + 48;
+      const compactHeight = (fontSizeValue * 1.625 * 2.0) + 24;
       const targetHeight = isSettingsOpen ? compactHeight + 350 : compactHeight;
 
       // This will only resize (and adjust Y if needed) relative to CURRENT position
@@ -126,6 +127,23 @@ export default function Home() {
     setMounted(true);
   }, []);
 
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setContainerSize({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
+      }
+    });
+    observer.observe(scrollRef.current);
+    return () => observer.disconnect();
+  }, [mounted, settings.fontSize]); // Re-observe if elements shift heavily? Actually just dependent on ref existence.
+
   // Estilos dinâmicos
   const textStyle = {
     fontFamily:
@@ -145,7 +163,7 @@ export default function Home() {
     ? `rgba(24, 24, 27, ${opacityValue})` // zinc-900
     : `rgba(255, 255, 255, ${opacityValue})`; // white
 
-  const compactHeight = (parseInt(settings.fontSize) * 1.625 * 2.5) + 48;
+  const compactHeight = (parseInt(settings.fontSize) * 1.625 * 2.0) + 24;
 
   const handleDragOrDoubleClick = async (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -191,7 +209,7 @@ export default function Home() {
            updateSetting('position', targetDockPos);
            
            const fontSizeValue = parseInt(settings.fontSize);
-           const height = (fontSizeValue * 1.625 * 2.5) + 48;
+           const height = (fontSizeValue * 1.625 * 2.0) + 24;
            moveWindow(targetDockPos as any, height, 1.0);
         } else {
            // RESTORING logic
@@ -200,7 +218,7 @@ export default function Home() {
            updateSetting('position', restorePos);
 
            const fontSizeValue = parseInt(settings.fontSize);
-           const height = (fontSizeValue * 1.625 * 2.5) + 48;
+           const height = (fontSizeValue * 1.625 * 2.0) + 24;
            moveWindow(restorePos, height, 0.95);
            setPreDockPosition(null);
         }
@@ -225,11 +243,8 @@ export default function Home() {
           backgroundColor,
           height: compactHeight, // Fixed height for the visual bar
           // When settings are open, we allow overflow so the menu can be seen outside this bar
-          // BUT... if we use overflow-visible, the content inside (text) might spill?
-          // The text container has overflow-y-auto, so it should handle itself.
-          // The settings menu is in a Portal usually? No, in Tauri it might be inside DOM.
           // If Radix uses Portal, standard overflow:hidden on this container might CLIP it if the portal root is inside?
-          // Radix Portals usually go to document.body. 
+          // Radix Portals usually go to document.body.
           // If document.body is transparent, and window is large, we are good.
         }}
       >
@@ -272,7 +287,7 @@ export default function Home() {
                     setIsFullWidth(shouldStayDocked);
                     updateSetting('position', pos);
                     const fontSizeValue = parseInt(settings.fontSize);
-                    const height = (fontSizeValue * 1.625 * 2.5) + 48;
+                   const height = (fontSizeValue * 1.625 * 2.0) + 32;
                     const widthPercent = shouldStayDocked ? 1.0 : 0.95;
                     moveWindow(pos as any, height, widthPercent);
                   }}
@@ -304,36 +319,21 @@ export default function Home() {
             {/* Subtitle Text Box */}
             <div
               ref={scrollRef}
-              className='flex flex-col w-full h-full overflow-y-auto scrollbar-hide z-20 relative px-8 cursor-grab active:cursor-grabbing'
+              className='flex flex-col w-full h-full overflow-hidden z-20 relative px-8 cursor-grab active:cursor-grabbing'
              
-              style={{ maxHeight: `calc(${settings.fontSize} * 1.625 * 2.5 + 16px)` }}
+              style={{ maxHeight: `calc(${settings.fontSize} * 1.625 * 2.0)` }}
             >
-              <div className="flex flex-col w-full max-w-3xl mx-auto min-h-full">
+              <div className="flex flex-col w-full max-w-3xl mx-auto min-h-full justify-end">
                 {/* Text Container */}
                 {subtitle ? (
                   <div
                     className="w-full whitespace-pre-wrap leading-relaxed text-left drop-shadow-md max-w-[90%] break-words relative z-10"
-                    style={textStyle}
-                   
                   >
-                    {subtitle.split(/(\s+)/).map((part, index) => {
-                      if (part.match(/\s+/)) {
-                        return <span key={index}>{part}</span>;
-                      }
-                      if (part.length === 0) return null;
-                      return (
-                        <motion.span
-                          key={index}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ duration: 0.05 }}
-                          className="inline-block"
-                         
-                        >
-                          {part}
-                        </motion.span>
-                      );
-                    })}
+                    <TypewriterText 
+                      text={subtitle.length > 300 ? subtitle.slice(-300) : subtitle}
+                      style={textStyle}
+                      speed={20}
+                    />
                   </div>
                 ) : (
                   <AnimatePresence mode="wait">

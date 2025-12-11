@@ -330,7 +330,7 @@ export default function Home() {
                     className="w-full whitespace-pre-wrap leading-relaxed text-left drop-shadow-md max-w-[90%] break-words relative z-10"
                   >
                     <TypewriterText 
-                      text={subtitle.length > 300 ? subtitle.slice(-300) : subtitle}
+                      text={subtitle.length > 1000 ? subtitle.slice(-1000) : subtitle}
                       style={textStyle}
                       speed={20}
                     />

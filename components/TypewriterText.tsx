@@ -43,31 +43,37 @@ export function TypewriterText({
       // Limit search to avoid performance hit on long texts, though n=2000 is small.
       // We assume the shift is small usually, so valid overlap is large.
       // We iterate from local start.
+      let matchFound = false;
       for (let i = 0; i < displayedText.length; i++) {
          const suffix = displayedText.slice(i);
          if (text.startsWith(suffix)) {
-             // Found the overlap!
-             // "ABCDE" (Disp), "BCDEF" (Target). Suffix "BCDE". Text starts with "BCDE".
-             // Snap to "BCDE". The effect will type "F".
-             // Ensure we don't just snap to empty string if no total match (handled by loop end)
-             // But we want the LONGEST match, so we break immediately on first find?
-             // i=0 "ABCDE" -> No.
-             // i=1 "BCDE" -> Yes. Longest match.
              if (suffix.length > 0) {
                  setDisplayedText(suffix);
-                 // Do NOT return. We want to continue to the interval logic 
-                 // to type the REST of the text (the new part).
-                 // The interval will use the functional update state, 
-                 // so 'prev' will be the suffix we just set.
-                 break; // Found largest, break loop, continue to interval
+                 matchFound = true;
+                 break; 
              }
          }
       }
+
+      if (!matchFound) {
+        // Context switch detected (no overlap with history). 
+        // Reset to empty so we type from scratch.
+        setDisplayedText('');
+        // We return here to let the state update processed. 
+        // The effect will re-run or the interval will start next cycle?
+        // Actually, if we setDisplayedText(''), the next render `displayedText` is ''.
+        // The effect re-runs because `text` didn't change, but `displayedText` did? 
+        // No, `displayedText` is NOT in dependency array.
+        // So the effect CONTNUES.
+        // But `displayedText` in closure is still the old one.
+        // However, the interval consumes `prev` from functional update.
+        // If we fired `setDisplayedText('')`, the queue has `''`.
+        // Then interval fires `setDisplayedText(prev => ...)`. 
+        // `prev` will be `''` (from the update we just queued).
+        // `text.slice(0, prev.length + 1)` -> `text[0]`.
+        // This works perfectly!
+      }
     }
-    
-    // If no intelligent overlap found (context switch?), just let it run normally.
-    // Ideally we might clear if totally different?
-    // But for now, let standard slice logic handle it (might look like overwrite).
     
     // If we are already up to date, do nothing
     if (displayedText === text) return;

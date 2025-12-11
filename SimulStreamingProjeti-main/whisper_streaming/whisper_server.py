@@ -6,6 +6,9 @@ import argparse
 import os
 import logging
 import numpy as np
+import collections
+import re
+
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +61,8 @@ class ServerProcessor:
         self.min_chunk = min_chunk
 
         self.is_first = True
+        self.history = collections.deque(maxlen=10)
+
 
     def receive_audio_chunk(self):
         # receive all audio that is available by this time
@@ -89,6 +94,29 @@ class ServerProcessor:
         # - the next words: segment transcript
         if iteration_output:
             message = "%1.0f %1.0f %s" % (iteration_output['start'] * 1000, iteration_output['end'] * 1000, iteration_output['text'])
+            
+            # Hallucination detection
+            text_content = iteration_output['text'].strip()
+            if text_content:
+                self.history.append(text_content)
+                
+                # 1. Check for repetition ACROSS segments (already exists)
+                if len(self.history) >= 5 and all(x == text_content for x in list(self.history)[-5:]):
+                     print(f"HALLUCINATION DETECTED (Segment Loop): Repeating '{text_content}'. Exiting with code 42...", file=sys.stderr)
+                     sys.exit(42)
+                
+                # 2. Check for repetition WITHIN the segment (New)
+                # Matches any sequence of 4+ characters that repeats 4+ times consecutively or with small gaps
+                # e.g. "Não, não, não, não"
+                if re.search(r"(.{4,})\1{3,}", text_content):
+                     print(f"HALLUCINATION DETECTED (Internal Loop): Found repetitive pattern in '{text_content}'. Exiting with code 42...", file=sys.stderr)
+                     sys.exit(42)
+                
+                # specific check for "Não, " loops which are common
+                if text_content.count("Não, ") > 4 or text_content.count("não, ") > 4:
+                     print(f"HALLUCINATION DETECTED (Specific Loop): Too many 'Não's. Exiting with code 42...", file=sys.stderr)
+                     sys.exit(42)
+
             print(message, flush=True, file=sys.stderr)
             self.connection.send(message)
         else:
@@ -168,15 +196,19 @@ def main_server(factory, add_args):
         s.bind((args.host, args.port))
         s.listen(1)
         logger.info('Listening on'+str((args.host, args.port)))
-        while True:
-            conn, addr = s.accept()
-            logger.info('Connected to client on {}'.format(addr))
-            connection = Connection(conn)
-            proc = ServerProcessor(connection, online, min_chunk)
-            try:
-                proc.process()
-            except Exception as e:
-                print(f"Exception on process: {e}")
-            conn.close()
-            logger.info('Connection to client closed')
+        
+        # Remove loop to ensure that after one client disconnects, the process exits
+        # This allows the supervisor script to restart it fresh
+        conn, addr = s.accept()
+        logger.info('Connected to client on {}'.format(addr))
+        connection = Connection(conn)
+        proc = ServerProcessor(connection, online, min_chunk)
+        try:
+            proc.process()
+        except Exception as e:
+            print(f"Exception on process: {e}")
+        conn.close()
+        logger.info('Connection to client closed')
+        print("Client disconnected. Restarting backend to refresh model state...")
+        sys.exit(42)
     logger.info('Connection closed, terminating.')

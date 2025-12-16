@@ -20,7 +20,7 @@ export default function Home() {
   // Estados da Aplicação de Transcrição
   const [subtitle, setSubtitle] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isFullWidth, setIsFullWidth] = useState(false);
+  const [isFullWidth, setIsFullWidth] = useState(true);
   const [preDockPosition, setPreDockPosition] = useState<string | null>(null);
 
   // Effect 1: Snap to preset position when position setting changes or apps loads
@@ -66,6 +66,7 @@ export default function Home() {
     if (isRecording) {
       try {
         await invoke('parar_transcricao');
+        setSubtitle(''); // Clear text immediately
         setIsRecording(false);
       } catch (error) {
         console.error('Erro ao parar:', error);
@@ -86,31 +87,47 @@ export default function Home() {
           }
         }
         await invoke('iniciar_transcricao');
-        setIsRecording(true);
+        // Do NOT set isRecording(true) here immediately.
+        // We wait for the Polling loop to receive [SERVER_READY]
         setSubtitle('');
       } catch (error) {
         console.error('Falha ao conectar/iniciar transcrição:', error);
         alert('Falha ao conectar ao servidor Python.');
-      } finally {
-        setIsConnecting(false);
-      }
+        setIsConnecting(false); // Only cancel if error
+      } 
+      // Do NOT setIsConnecting(false) in finally, wait for ready signal
     }
   };
 
   // Polling para o texto em tempo real
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
-    if (isRecording) {
+    if (isRecording || isConnecting) { // Poll while connecting too
       intervalId = setInterval(async () => {
         try {
           const textoAtual = await invoke<string>('pegar_texto');
+          
           if (textoAtual) {
-            setSubtitle(textoAtual);
+              // If we receive ANY text (signal or actual transcription), the backend is alive and communicating.
+              // Stop the loader immediately.
+              if (isConnecting) {
+                  console.log("Received data from backend, hiding loader.");
+                  setIsConnecting(false);
+                  setIsRecording(true);
+              }
+
+              if (textoAtual.includes("[SERVER_READY]")) {
+                  // Remove the signal string
+                  const limpio = textoAtual.replace("[SERVER_READY]", "").trim();
+                  if (limpio) setSubtitle(limpio);
+              } else {
+                  // Standard text update
+                  setSubtitle(textoAtual);
+              }
           }
         } catch (error) {
-          // Captura o erro no polling (o Rust pode travar se o wrapper perder a conexão)
           console.debug(
-            'Erro no polling (normal durante interrupções):',
+            'Erro no polling:',
             error
           );
         }
@@ -119,7 +136,7 @@ export default function Home() {
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [isRecording]);
+  }, [isRecording, isConnecting]);
 
   const [mounted, setMounted] = useState(false);
 
@@ -188,14 +205,12 @@ export default function Home() {
                  const centerY = pos.y + (size.height / 2);
                  const relativeY = centerY - monitor.position.y;
                  
-                 // Simple heuristic: Top third, Middle third, Bottom third
-                 if (relativeY < screenHeight / 3) {
-                     currentApproxPos = 'top';
-                 } else if (relativeY > (screenHeight * 2) / 3) {
-                     currentApproxPos = 'bottom';
-                 } else {
-                     currentApproxPos = 'middle';
-                 }
+                  // Simple heuristic: Top half / Bottom half
+                  if (relativeY < screenHeight / 2) {
+                      currentApproxPos = 'top';
+                  } else {
+                      currentApproxPos = 'bottom';
+                  }
              }
            } catch (err) {
                console.error("Error calculating position:", err);
@@ -233,7 +248,7 @@ export default function Home() {
   return (
     <div
       className={`flex h-screen w-full flex-col overflow-hidden bg-transparent ${
-        settings.position === 'bottom' ? 'justify-end' : settings.position === 'middle' ? 'justify-center' : 'justify-start'
+        settings.position === 'bottom' ? 'justify-end' : 'justify-start'
       }`}
     >
       <div
@@ -283,11 +298,11 @@ export default function Home() {
                 <SettingsMenu
                   position={settings.position}
                   setPosition={(pos) => {
-                    const shouldStayDocked = isFullWidth && pos !== 'middle';
+                    const shouldStayDocked = isFullWidth;
                     setIsFullWidth(shouldStayDocked);
                     updateSetting('position', pos);
                     const fontSizeValue = parseInt(settings.fontSize);
-                   const height = (fontSizeValue * 1.625 * 2.0) + 32;
+                    const height = (fontSizeValue * 1.625 * 2.0) + 32;
                     const widthPercent = shouldStayDocked ? 1.0 : 0.95;
                     moveWindow(pos as any, height, widthPercent);
                   }}
@@ -337,7 +352,19 @@ export default function Home() {
                   </div>
                 ) : (
                   <AnimatePresence mode="wait">
-                    {isRecording ? (
+                    {isConnecting ? (
+                      <motion.div
+                        key="connecting"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 0.5 }}
+                        exit={{ opacity: 0 }}
+                        className='w-full flex flex-col items-center justify-center gap-2 relative z-10 my-auto select-none'
+                        style={{ ...textStyle, fontSize: `calc(${settings.fontSize} * 0.8)` }}
+                      >
+                         <Loader2 className='h-6 w-6 animate-spin' />
+                         <p>Iniciando modelo...</p>
+                      </motion.div>
+                    ) : isRecording ? (
                       <motion.p
                         key="listening"
                         initial={{ opacity: 0 }}

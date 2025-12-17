@@ -167,17 +167,20 @@ def main_server(factory, add_args):
 
     set_logging(args,logger)
 
+    args = parser.parse_args()
+
+    set_logging(args,logger)
+
+    # 1. Bind socket EARLY so clients don't get Connection Refused while we load the model
+    # Load Model and Warmup (Time consuming)
     # setting whisper object by args 
-
-
     asr, online = asr_factory(args, factory)
     if args.vac:
         min_chunk = args.vac_chunk_size
     else:
         min_chunk = args.min_chunk_size
     print(f"O VALOR DE MINCHUNK É {min_chunk}")
-    # warm up the ASR because the very first transcribe takes more time than the others. 
-    # Test results in https://github.com/ufal/whisper_streaming/pull/81
+    
     msg = "Whisper is not warmed up. The first chunk processing may take longer."
     if args.warmup_file:
         if os.path.isfile(args.warmup_file):
@@ -190,18 +193,26 @@ def main_server(factory, add_args):
     else:
         logger.warning(msg)
 
-    # server loop
-
+    # 1. Bind socket LATE so clients get Connection Refused until we are truly ready
+    # This prevents the client from filling the buffer while we load
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((args.host, args.port))
         s.listen(1)
         logger.info('Listening on'+str((args.host, args.port)))
-        
+
+        # server loop
         # Remove loop to ensure that after one client disconnects, the process exits
         # This allows the supervisor script to restart it fresh
         conn, addr = s.accept()
         logger.info('Connected to client on {}'.format(addr))
         connection = Connection(conn)
+        
+        # 3. Send READY signal to client (REQUIRED by Rust Wrapper)
+        print("Sending [SERVER_READY] signal...")
+        connection.send("[SERVER_READY]")
+
+        # 4. Process
         proc = ServerProcessor(connection, online, min_chunk)
         try:
             proc.process()

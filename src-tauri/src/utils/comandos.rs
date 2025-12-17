@@ -53,17 +53,9 @@ pub fn parar_transcricao(app_handle: tauri::AppHandle) -> Result<(), String>{
     let estado = app_handle.state::<Mutex<Estado>>();
     let mut lock_estado = estado.lock().unwrap();
 
-    match lock_estado.wrapper {
-        Some(_) => {
-            match lock_estado.wrapper.as_mut().unwrap().parar() {
-                Ok(_) => {},
-                Err(e) => { return Err(e.to_string()) }
-            };
-        },
-        None => {
-            return Err("Wrapper não foi iniciado".to_string());
-        }
-    }
+    // Dropping the wrapper closes the socket, triggering backend restart (exit 42)
+    lock_estado.wrapper = None;
+    
     Ok(())
 }
 

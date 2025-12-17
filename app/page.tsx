@@ -23,6 +23,64 @@ export default function Home() {
   const [isFullWidth, setIsFullWidth] = useState(true);
   const [preDockPosition, setPreDockPosition] = useState<string | null>(null);
 
+  // Debounce/Optimization for AppBar updates
+  const lastAppBarRef = useRef<{pos: string, height: number} | null>(null);
+
+  const updateAppBar = async (pos: 'top' | 'bottom' | 'none', height: number) => {
+      // Prevent redundant calls to avoid shell freeze
+      if (lastAppBarRef.current && 
+          lastAppBarRef.current.pos === pos && 
+          lastAppBarRef.current.height === height) {
+          return;
+      }
+
+      try {
+          lastAppBarRef.current = { pos, height };
+          await invoke('register_appbar', { position: pos, height });
+      } catch (e) {
+          console.error("Failed to update app bar:", e);
+      }
+  };
+
+  // Drag-to-Undock Polling
+  useEffect(() => {
+    if (!isFullWidth || isSettingsOpen) return;  // Disable polling while settings are open or undocked 
+
+    const checkUndock = async () => {
+       try {
+           const appWindow = getCurrentWindow();
+           const pos = await appWindow.outerPosition();
+           const monitor = await currentMonitor();
+           if (!monitor) return;
+           
+           // Threshold to snap out
+           const threshold = 20; 
+
+           if (settings.position === 'top') {
+               // If we are docked top, y should be close to monitor.y
+               if (Math.abs(pos.y - monitor.position.y) > threshold) {
+                   setIsFullWidth(false);
+                   updateAppBar('none', 0);
+               }
+           } else if (settings.position === 'bottom') {
+               // If docked bottom, y + height should be close to monitor.y + size.height
+               // Actually checking if we pulled it UP away from bottom
+               const size = await appWindow.outerSize();
+               const monitorBottom = monitor.position.y + monitor.size.height;
+               if (Math.abs((pos.y + size.height) - monitorBottom) > threshold) {
+                   setIsFullWidth(false);
+                   updateAppBar('none', 0);
+               }
+           }
+       } catch (e) {
+           // ignore errors during poll
+       }
+    };
+
+    const interval = setInterval(checkUndock, 500); // Check every 500ms
+    return () => clearInterval(interval);
+  }, [isFullWidth, settings.position]);
+
   // Effect 1: Snap to preset position when position setting changes or apps loads
   useEffect(() => {
     if (loaded) {
@@ -32,8 +90,25 @@ export default function Home() {
 
       // This will snap the window to Top/Bottom/Mid of monitor
       moveWindow(settings.position, targetHeight, isFullWidth ? 1.0 : 0.95);
+      
+      if (isFullWidth) {
+         getCurrentWindow().scaleFactor().then(scale => {
+             // ALWAYS reserve only the compact strip height for the AppBar
+             // NOT the targetHeight (which might include the setting menu)
+             // This allows the menu to "overflow" the reserved area without pushing windows
+             const compactPhysicalHeight = Math.round(compactHeight * scale);
+             
+             if (settings.position === 'middle') {
+                 updateAppBar('none', 0);
+             } else {
+                 updateAppBar(settings.position, compactPhysicalHeight);
+             }
+         });
+      } else {
+         updateAppBar('none', 0);
+      }
     }
-  }, [loaded, settings.position, moveWindow, isFullWidth]); // Dependencies: Only position changes cause snap
+  }, [loaded, settings.position, moveWindow, isFullWidth, isSettingsOpen, settings.fontSize]); // Dependencies: Only position changes cause snap
 
   // Effect 2: Resize in place when settings toggle or content size changes
   useEffect(() => {
@@ -73,63 +148,78 @@ export default function Home() {
       }
     } else {
       setIsConnecting(true);
-      try {
-        try {
-          await invoke('iniciar_wrapper', {
-            host: WHISPER_HOST,
-            porta: WHISPER_PORT,
-            limite_caracteres: 2000,
-            comprimento_minimo: 0.1,
-          });
-        } catch (e: any) {
-          if (typeof e === 'string' && !e.includes('Wrapper já foi iniciado')) {
-            throw e;
+      setSubtitle('');
+      
+      const MAX_RETRIES = 120; // 120 attempts * 500ms = 60 seconds (safe for large models)
+      let attempts = 0;
+      let connected = false;
+
+      while (attempts < MAX_RETRIES && !connected) {
+          try {
+              // Try to connect
+              await invoke('iniciar_wrapper', {
+                  host: WHISPER_HOST,
+                  porta: WHISPER_PORT,
+                  limite_caracteres: 2000,
+                  comprimento_minimo: 0.1,
+              });
+              connected = true;
+          } catch (e: any) {
+              if (typeof e === 'string' && e.includes('Wrapper já foi iniciado')) {
+                  connected = true;
+              } else {
+                  console.log(`Connection attempt ${attempts + 1} failed, retrying...`);
+                  attempts++;
+                  await new Promise(r => setTimeout(r, 500));
+              }
           }
-        }
-        await invoke('iniciar_transcricao');
-        // Do NOT set isRecording(true) here immediately.
-        // We wait for the Polling loop to receive [SERVER_READY]
-        setSubtitle('');
+      }
+
+      if (!connected) {
+           console.error('Falha ao conectar após várias tentativas.');
+           alert('Falha ao conectar ao servidor Python. O modelo pode estar demorando para carregar.');
+           setIsConnecting(false);
+           return;
+      }
+
+      // If connected, start transcription immediately
+      try {
+          await invoke('iniciar_transcricao');
+          setIsRecording(true);
+          setIsConnecting(false);
       } catch (error) {
-        console.error('Falha ao conectar/iniciar transcrição:', error);
-        alert('Falha ao conectar ao servidor Python.');
-        setIsConnecting(false); // Only cancel if error
-      } 
-      // Do NOT setIsConnecting(false) in finally, wait for ready signal
+          console.error('Falha ao iniciar transcrição:', error);
+          alert('Erro ao iniciar fluxo de áudio.');
+          setIsConnecting(false);
+      }
     }
   };
 
   // Polling para o texto em tempo real
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
-    if (isRecording || isConnecting) { // Poll while connecting too
+    if (isRecording || isConnecting) { // Poll while connecting too, to catch early signals
       intervalId = setInterval(async () => {
         try {
           const textoAtual = await invoke<string>('pegar_texto');
-          
           if (textoAtual) {
-              // If we receive ANY text (signal or actual transcription), the backend is alive and communicating.
-              // Stop the loader immediately.
+              // Safety net: If we receive data, we are definitely connected and recording
               if (isConnecting) {
-                  console.log("Received data from backend, hiding loader.");
-                  setIsConnecting(false);
-                  setIsRecording(true);
+                  // If we get the specific ready signal or just data, we assume success
+                   console.log("Data received during connection phase. Switching to recording.");
+                   setIsConnecting(false);
+                   setIsRecording(true);
               }
 
               if (textoAtual.includes("[SERVER_READY]")) {
-                  // Remove the signal string
                   const limpio = textoAtual.replace("[SERVER_READY]", "").trim();
                   if (limpio) setSubtitle(limpio);
               } else {
-                  // Standard text update
                   setSubtitle(textoAtual);
               }
           }
         } catch (error) {
-          console.debug(
-            'Erro no polling:',
-            error
-          );
+           // Ignore errors during polling (e.g. if wrapper not fully ready yet)
         }
       }, 100);
     }

@@ -81,7 +81,7 @@ function PositionSettings({ position, setPosition }: SettingsMenuProps) {
       <RadioGroup
         value={position}
         onValueChange={setPosition}
-        className="grid grid-cols-3 gap-2"
+        className="grid grid-cols-2 gap-2"
       >
         <div>
           <RadioGroupItem value="top" id="pos-top" className="peer sr-only" />
@@ -92,15 +92,7 @@ function PositionSettings({ position, setPosition }: SettingsMenuProps) {
             Top
           </Label>
         </div>
-        <div>
-          <RadioGroupItem value="middle" id="pos-middle" className="peer sr-only" />
-          <Label
-            htmlFor="pos-middle"
-            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
-          >
-            Mid
-          </Label>
-        </div>
+
         <div>
           <RadioGroupItem value="bottom" id="pos-bottom" className="peer sr-only" />
           <Label

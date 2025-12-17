@@ -42,7 +42,8 @@ function getModelArgs(option) {
                 '--language', 'pt',
                 '--task', 'transcribe',
                 '--host', '0.0.0.0',
-                '--model_path', './models/medium.pt'
+                '--model_path', './models/medium.pt',
+                '--warmup-file', 'warmup.mp3'
             ];
         case '3': // Speed Turbo Navegante
             return [
